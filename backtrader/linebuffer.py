@@ -29,15 +29,12 @@ with appends, forwarding, rewinding, resetting and other
 
 """
 
-from __future__ import absolute_import, division, print_function, unicode_literals
-
 import array
 import collections
 import datetime
 from itertools import islice
 import math
 
-from .utils.py3 import range, with_metaclass, string_types
 
 from .lineroot import LineRoot, LineSingle, LineMultiple
 from . import metabase
@@ -342,7 +339,7 @@ class LineBuffer(LineSingle):
         """
         Stores a binding to another line. "binding" can be an index or a name
         """
-        if isinstance(binding, string_types):
+        if isinstance(binding, str):
             line = getattr(self._owner.lines, binding)
         else:
             line = self._owner.lines[binding]
@@ -582,7 +579,7 @@ class PseudoArray(object):
         return self
 
 
-class LineActions(with_metaclass(MetaLineActions, LineBuffer)):
+class LineActions(LineBuffer, metaclass=MetaLineActions):
     """
     Base class derived from LineBuffer intented to defined the
     minimum interface to make it compatible with a LineIterator by

@@ -18,11 +18,9 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #
 ###############################################################################
-from __future__ import absolute_import, division, print_function, unicode_literals
 
 
 from .metabase import MetaParams
-from .utils.py3 import with_metaclass
 
 __all__ = ["Filter"]
 
@@ -31,7 +29,7 @@ class MetaFilter(MetaParams):
     pass
 
 
-class Filter(with_metaclass(MetaParams, object)):
+class Filter(metaclass=MetaParams):
 
     _firsttime = True
 

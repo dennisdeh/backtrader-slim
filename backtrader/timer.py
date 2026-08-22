@@ -18,7 +18,6 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #
 ###############################################################################
-from __future__ import absolute_import, division, print_function, unicode_literals
 
 
 import bisect
@@ -29,7 +28,6 @@ from itertools import islice
 from .feed import AbstractDataBase
 from .metabase import MetaParams
 from .utils import date2num, num2date
-from .utils.py3 import integer_types, range, with_metaclass
 from .utils import TIME_MAX
 
 __all__ = ["SESSION_TIME", "SESSION_START", "SESSION_END", "Timer"]
@@ -37,7 +35,7 @@ __all__ = ["SESSION_TIME", "SESSION_START", "SESSION_END", "Timer"]
 SESSION_TIME, SESSION_START, SESSION_END = range(3)
 
 
-class Timer(with_metaclass(MetaParams, object)):
+class Timer(metaclass=MetaParams):
     params = (
         ("tid", None),
         ("owner", None),
@@ -62,7 +60,7 @@ class Timer(with_metaclass(MetaParams, object)):
 
     def start(self, data):
         # write down the 'reset when' value
-        if not isinstance(self.p.when, integer_types):  # expect time/datetime
+        if not isinstance(self.p.when, int):  # expect time/datetime
             self._rstwhen = self.p.when
             self._tzdata = self.p.tzdata
         else:

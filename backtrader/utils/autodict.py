@@ -18,11 +18,8 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #
 ###############################################################################
-from __future__ import absolute_import, division, print_function, unicode_literals
 
 from collections import OrderedDict, defaultdict
-
-from .py3 import values as py3lvalues
 
 
 def Tree():
@@ -141,4 +138,4 @@ class AutoOrderedDict(OrderedDict):
         return self + other
 
     def lvalues(self):
-        return py3lvalues(self)
+        return list(self.values())

@@ -18,8 +18,6 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #
 ###############################################################################
-from __future__ import (absolute_import, division, print_function,
-                        unicode_literals)
 
 import argparse
 import datetime
@@ -28,7 +26,7 @@ import backtrader as bt
 import backtrader.indicators as btind
 
 
-class DayStepsCloseFilter(bt.with_metaclass(bt.MetaParams, object)):
+class DayStepsCloseFilter(object, metaclass=bt.MetaParams):
     '''
     Replays a bar in 2 steps:
 
@@ -92,7 +90,7 @@ class DayStepsCloseFilter(bt.with_metaclass(bt.MetaParams, object)):
         return False  # nothing delivered here
 
 
-class DayStepsReplayFilter(bt.with_metaclass(bt.MetaParams, object)):
+class DayStepsReplayFilter(object, metaclass=bt.MetaParams):
     '''
     Replays a bar in 2 steps:
 

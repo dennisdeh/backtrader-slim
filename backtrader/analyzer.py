@@ -18,7 +18,8 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #
 ###############################################################################
-from __future__ import absolute_import, division, print_function, unicode_literals
+
+import sys
 
 import calendar
 from collections import OrderedDict
@@ -27,7 +28,6 @@ import pprint as pp
 
 import backtrader as bt
 from backtrader import TimeFrame
-from backtrader.utils.py3 import MAXINT, with_metaclass
 
 
 class MetaAnalyzer(bt.MetaParams):
@@ -84,7 +84,7 @@ class MetaAnalyzer(bt.MetaParams):
         return _obj, args, kwargs
 
 
-class Analyzer(with_metaclass(MetaAnalyzer, object)):
+class Analyzer(metaclass=MetaAnalyzer):
     """Analyzer base class. All analyzers are subclass of this one
 
     An Analyzer instance operates in the frame of a strategy and provides an
@@ -294,7 +294,7 @@ class MetaTimeFrameAnalyzerBase(Analyzer.__class__):
         return super(MetaTimeFrameAnalyzerBase, meta).__new__(meta, name, bases, dct)
 
 
-class TimeFrameAnalyzerBase(with_metaclass(MetaTimeFrameAnalyzerBase, Analyzer)):
+class TimeFrameAnalyzerBase(Analyzer, metaclass=MetaTimeFrameAnalyzerBase):
     params = (
         ("timeframe", None),
         ("compression", None),
@@ -342,7 +342,7 @@ class TimeFrameAnalyzerBase(with_metaclass(MetaTimeFrameAnalyzerBase, Analyzer))
 
     def _dt_over(self):
         if self.timeframe == TimeFrame.NoTimeFrame:
-            dtcmp, dtkey = MAXINT, datetime.datetime.max
+            dtcmp, dtkey = sys.maxsize, datetime.datetime.max
         else:
             # With >= 1.9.x the system datetime is in the strategy
             dt = self.strategy.datetime.datetime()

@@ -18,13 +18,11 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #
 ###############################################################################
-from __future__ import absolute_import, division, print_function, unicode_literals
 
 
 from datetime import datetime, timedelta, time
 
 from .metabase import MetaParams
-from backtrader.utils.py3 import string_types, with_metaclass
 from backtrader.utils import UTC
 
 __all__ = ["TradingCalendarBase", "TradingCalendar", "PandasMarketCalendar"]
@@ -51,7 +49,7 @@ ISOWEEKEND = [ISOSATURDAY, ISOSUNDAY]
 ONEDAY = timedelta(days=1)
 
 
-class TradingCalendarBase(with_metaclass(MetaParams, object)):
+class TradingCalendarBase(metaclass=MetaParams):
     def _nextday(self, day):
         """
         Returns the next trading day (datetime/date instance) after ``day``
@@ -238,7 +236,7 @@ class PandasMarketCalendar(TradingCalendarBase):
     def __init__(self):
         self._calendar = self.p.calendar
 
-        if isinstance(self._calendar, string_types):  # use passed mkt name
+        if isinstance(self._calendar, str):  # use passed mkt name
             import pandas_market_calendars as mcal
 
             self._calendar = mcal.get_calendar(self._calendar)

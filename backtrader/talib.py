@@ -18,7 +18,6 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #
 ###############################################################################
-from __future__ import absolute_import, division, print_function, unicode_literals
 
 # The modules below should/must define __all__ with the objects wishes
 # or prepend an "_" (underscore) to private classes/variables
@@ -26,7 +25,6 @@ from __future__ import absolute_import, division, print_function, unicode_litera
 import sys
 
 import backtrader as bt
-from backtrader.utils.py3 import with_metaclass
 
 try:
     import talib
@@ -89,7 +87,7 @@ else:
             _obj._tafunc = getattr(talib, tafuncinfo["name"], None)
             return _obj, args, kwargs  # return the object and args
 
-    class _TALibIndicator(with_metaclass(_MetaTALibIndicator, bt.Indicator)):
+    class _TALibIndicator(bt.Indicator, metaclass=_MetaTALibIndicator):
         CANDLEOVER = 1.02  # 2% over
         CANDLEREF = 1  # Open, High, Low, Close (0, 1, 2, 3)
 

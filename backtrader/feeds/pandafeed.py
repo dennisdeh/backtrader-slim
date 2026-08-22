@@ -18,9 +18,7 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #
 ###############################################################################
-from __future__ import absolute_import, division, print_function, unicode_literals
 
-from backtrader.utils.py3 import filter, string_types, integer_types
 
 from backtrader import date2num
 import backtrader.feed as feed
@@ -163,7 +161,7 @@ class PandasData(feed.DataBase):
             pass
 
         # try to autodetect if all columns are numeric
-        cstrings = filter(lambda x: isinstance(x, string_types), colnames)
+        cstrings = filter(lambda x: isinstance(x, str), colnames)
         colsnumeric = not len(list(cstrings))
 
         # Where each datafield find its value
@@ -173,10 +171,10 @@ class PandasData(feed.DataBase):
         for datafield in self.getlinealiases():
             defmapping = getattr(self.params, datafield)
 
-            if isinstance(defmapping, integer_types) and defmapping < 0:
+            if isinstance(defmapping, int) and defmapping < 0:
                 # autodetection requested
                 for colname in colnames:
-                    if isinstance(colname, string_types):
+                    if isinstance(colname, str):
                         if self.p.nocase:
                             found = datafield.lower() == colname.lower()
                         else:
@@ -209,7 +207,7 @@ class PandasData(feed.DataBase):
         for k, v in self._colmapping.items():
             if v is None:
                 continue  # special marker for datetime
-            if isinstance(v, string_types):
+            if isinstance(v, str):
                 try:
                     if self.p.nocase:
                         v = colnames.index(v.lower())
@@ -217,7 +215,7 @@ class PandasData(feed.DataBase):
                         v = colnames.index(v)
                 except ValueError as e:
                     defmap = getattr(self.params, k)
-                    if isinstance(defmap, integer_types) and defmap < 0:
+                    if isinstance(defmap, int) and defmap < 0:
                         v = None
                     else:
                         raise e  # let user now something failed

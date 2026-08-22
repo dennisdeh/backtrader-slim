@@ -18,7 +18,6 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #
 ###############################################################################
-from __future__ import absolute_import, division, print_function, unicode_literals
 
 
 from datetime import datetime
@@ -44,7 +43,7 @@ class MetaRollOver(bt.DataBase.__class__):
         return _obj, args, kwargs
 
 
-class RollOver(bt.with_metaclass(MetaRollOver, bt.DataBase)):
+class RollOver(bt.DataBase, metaclass=MetaRollOver):
     """Class that rolls over to the next future when a condition is met
 
     Params:

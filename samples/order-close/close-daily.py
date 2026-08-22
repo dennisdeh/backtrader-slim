@@ -18,7 +18,6 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #
 ###############################################################################
-from __future__ import (absolute_import, division, print_function,)
 #                        unicode_literals)
 
 import argparse
@@ -27,8 +26,6 @@ import random
 
 import backtrader as bt
 import backtrader.feeds as btfeeds
-
-from backtrader.utils.py3 import with_metaclass
 
 
 class St(bt.Strategy):
@@ -61,7 +58,7 @@ class St(bt.Strategy):
                 self.order = self.buy(exectype=bt.Order.Close)
 
 
-class SessionEndFiller(with_metaclass(bt.metabase.MetaParams, object)):
+class SessionEndFiller(object, metaclass=bt.metabase.MetaParams):
     '''This data filter simply adds the time given in param ``endtime`` to the
     current data datetime
 

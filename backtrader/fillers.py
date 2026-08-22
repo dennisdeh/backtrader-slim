@@ -18,15 +18,14 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #
 ###############################################################################
-from __future__ import absolute_import, division, print_function, unicode_literals
 
+import sys
 
-from backtrader.utils.py3 import MAXINT, with_metaclass
 
 from backtrader.metabase import MetaParams
 
 
-class FixedSize(with_metaclass(MetaParams, object)):
+class FixedSize(metaclass=MetaParams):
     """Returns the execution size for a given order using a *percentage* of the
     volume in a bar.
 
@@ -45,11 +44,11 @@ class FixedSize(with_metaclass(MetaParams, object)):
     params = (("size", None),)
 
     def __call__(self, order, price, ago):
-        size = self.p.size or MAXINT
+        size = self.p.size or sys.maxsize
         return min((order.data.volume[ago], abs(order.executed.remsize), size))
 
 
-class FixedBarPerc(with_metaclass(MetaParams, object)):
+class FixedBarPerc(metaclass=MetaParams):
     """Returns the execution size for a given order using a *percentage* of the
     volume in a bar.
 
@@ -71,7 +70,7 @@ class FixedBarPerc(with_metaclass(MetaParams, object)):
         return min(maxsize, abs(order.executed.remsize))
 
 
-class BarPointPerc(with_metaclass(MetaParams, object)):
+class BarPointPerc(metaclass=MetaParams):
     """Returns the execution size for a given order. The volume will be
     distributed uniformly in the range *high*-*low* using ``minmov`` to
     partition.

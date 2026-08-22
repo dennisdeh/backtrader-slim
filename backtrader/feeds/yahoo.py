@@ -18,14 +18,18 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #
 ###############################################################################
-from __future__ import absolute_import, division, print_function, unicode_literals
+
+from urllib.parse import quote as urlquote
+from urllib.request import ProxyHandler
+from urllib.request import build_opener
+from urllib.request import install_opener
+from urllib.request import urlopen
 
 import collections
 from datetime import date, datetime
 import io
 import itertools
 
-from ..utils.py3 import urlopen, urlquote, ProxyHandler, build_opener, install_opener
 
 import backtrader as bt
 from .. import feed

@@ -18,7 +18,6 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #
 ###############################################################################
-from __future__ import absolute_import, division, print_function, unicode_literals
 
 import datetime
 import collections
@@ -31,7 +30,6 @@ except AttributeError:  # For old Python versions
     collectionsAbc = collections  # Используем collections.Iterable
 
 import backtrader as bt
-from .utils.py3 import map, range, zip, with_metaclass, string_types, integer_types
 
 from . import linebuffer
 from . import indicator
@@ -54,7 +52,7 @@ class OptReturn(object):
             setattr(self, k, v)
 
 
-class Cerebro(with_metaclass(MetaParams, object)):
+class Cerebro(metaclass=MetaParams):
     """Params:
 
     - ``preload`` (default: ``True``)
@@ -330,7 +328,7 @@ class Cerebro(with_metaclass(MetaParams, object)):
         """
         niterable = list()
         for elem in iterable:
-            if isinstance(elem, string_types):
+            if isinstance(elem, str):
                 elem = (elem,)
             elif not isinstance(
                 elem, collectionsAbc.Iterable
@@ -609,7 +607,7 @@ class Cerebro(with_metaclass(MetaParams, object)):
         If a subclass of `TradingCalendarBase` is passed (not an instance) it
         will be instantiated
         """
-        if isinstance(cal, string_types):
+        if isinstance(cal, str):
             cal = PandasMarketCalendar(calendar=cal)
         elif hasattr(cal, "valid_days"):
             cal = PandasMarketCalendar(calendar=cal)
@@ -701,7 +699,7 @@ class Cerebro(with_metaclass(MetaParams, object)):
         self.observers.append((True, obscls, args, kwargs))
 
     def addstorecb(self, callback):
-        """Adds a callback to get messages which would be handled by the
+        r"""Adds a callback to get messages which would be handled by the
         notify_store method
 
         The signature of the callback must support the following:
@@ -743,7 +741,7 @@ class Cerebro(with_metaclass(MetaParams, object)):
                     strat.notify_store(msg, *args, **kwargs)
 
     def adddatacb(self, callback):
-        """Adds a callback to get messages which would be handled by the
+        r"""Adds a callback to get messages which would be handled by the
         notify_data method
 
         The signature of the callback must support the following:
@@ -1284,7 +1282,7 @@ class Cerebro(with_metaclass(MetaParams, object)):
             runstrats.append(strat)
 
         tz = self.p.tz
-        if isinstance(tz, integer_types):
+        if isinstance(tz, int):
             tz = self.datas[tz]._tz
         else:
             tz = tzparse(tz)
@@ -1593,9 +1591,9 @@ class Cerebro(with_metaclass(MetaParams, object)):
             # record starting time and tell feeds to discount the elapsed time
             # from the qcheck value
             drets = []
-            qstart = datetime.datetime.utcnow()
+            qstart = datetime.datetime.now(datetime.timezone.utc)
             for d in datas:
-                qlapse = datetime.datetime.utcnow() - qstart
+                qlapse = datetime.datetime.now(datetime.timezone.utc) - qstart
                 d.do_qcheck(newqcheck, qlapse.total_seconds())
                 drets.append(d.next(ticks=False))
 

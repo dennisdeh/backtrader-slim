@@ -18,11 +18,9 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #
 ###############################################################################
-from __future__ import absolute_import, division, print_function, unicode_literals
 
 import math
 
-from backtrader.utils.py3 import itervalues
 
 from backtrader import Analyzer, TimeFrame
 from backtrader.mathsupport import average, standarddev
@@ -150,7 +148,7 @@ class SharpeRatio(Analyzer):
             self.ratio = retavg / retdev
         else:
             # Get the returns from the subanalyzer
-            returns = list(itervalues(self.timereturn.get_analysis()))
+            returns = list(self.timereturn.get_analysis().values())
 
             rate = self.p.riskfreerate  #
 

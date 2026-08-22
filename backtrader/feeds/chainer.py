@@ -18,13 +18,11 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #
 ###############################################################################
-from __future__ import absolute_import, division, print_function, unicode_literals
 
 
 from datetime import datetime
 
 import backtrader as bt
-from backtrader.utils.py3 import range
 
 
 class MetaChainer(bt.DataBase.__class__):
@@ -45,7 +43,7 @@ class MetaChainer(bt.DataBase.__class__):
         return _obj, args, kwargs
 
 
-class Chainer(bt.with_metaclass(MetaChainer, bt.DataBase)):
+class Chainer(bt.DataBase, metaclass=MetaChainer):
     """Class that chains datas"""
 
     def islive(self):

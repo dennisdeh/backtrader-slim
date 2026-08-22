@@ -18,14 +18,12 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #
 ###############################################################################
-from __future__ import absolute_import, division, print_function, unicode_literals
 
 import collections
 from copy import copy
 import datetime
 import itertools
 
-from .utils.py3 import range, with_metaclass, iteritems
 
 from .metabase import MetaParams
 from .utils import AutoOrderedDict
@@ -258,7 +256,7 @@ class OrderData(object):
         return obj
 
 
-class OrderBase(with_metaclass(MetaParams, object)):
+class OrderBase(metaclass=MetaParams):
     params = (
         ("owner", None),
         ("data", None),
@@ -509,7 +507,7 @@ class OrderBase(with_metaclass(MetaParams, object)):
         """Add the keys, values of kwargs to the internal info dictionary to
         hold custom information in the order
         """
-        for key, val in iteritems(kwargs):
+        for key, val in kwargs.items():
             self.info[key] = val
 
     def __eq__(self, other):

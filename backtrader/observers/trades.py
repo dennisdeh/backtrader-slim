@@ -18,12 +18,10 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #
 ###############################################################################
-from __future__ import absolute_import, division, print_function, unicode_literals
 
 import uuid
 
 from .. import Observer
-from ..utils.py3 import with_metaclass
 
 from ..trade import Trade
 
@@ -191,7 +189,7 @@ class MetaDataTrades(Observer.__class__):
         return _obj, args, kwargs  # return the instantiated object and args
 
 
-class DataTrades(with_metaclass(MetaDataTrades, Observer)):
+class DataTrades(Observer, metaclass=MetaDataTrades):
     _stclock = True
 
     params = (("usenames", True),)

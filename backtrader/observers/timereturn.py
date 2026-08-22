@@ -18,15 +18,14 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #
 ###############################################################################
-from __future__ import absolute_import, division, print_function, unicode_literals
+
+import sys
 
 import calendar
 import datetime
 
 import backtrader as bt
 from .. import Observer, TimeFrame
-
-from backtrader.utils.py3 import MAXINT
 
 
 class TimeReturn(Observer):

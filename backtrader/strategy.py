@@ -18,7 +18,8 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #
 ###############################################################################
-from __future__ import absolute_import, division, print_function, unicode_literals
+
+import sys
 
 import collections
 import copy
@@ -27,17 +28,6 @@ import inspect
 import itertools
 import operator
 
-from .utils.py3 import (
-    filter,
-    keys,
-    integer_types,
-    iteritems,
-    itervalues,
-    map,
-    MAXINT,
-    string_types,
-    with_metaclass,
-)
 
 import backtrader as bt
 from .lineiterator import LineIterator, StrategyBase
@@ -109,7 +99,7 @@ class MetaStrategy(StrategyBase.__class__):
         return _obj, args, kwargs
 
 
-class Strategy(with_metaclass(MetaStrategy, StrategyBase)):
+class Strategy(StrategyBase, metaclass=MetaStrategy):
     """
     Base class to be subclassed for user defined strategies.
     """
@@ -410,7 +400,7 @@ class Strategy(with_metaclass(MetaStrategy, StrategyBase)):
 
         self._dlens = [len(data) for data in self.datas]
 
-        self._minperstatus = MAXINT  # start in prenext
+        self._minperstatus = sys.maxsize  # start in prenext
 
         self.start()
 
@@ -783,7 +773,7 @@ class Strategy(with_metaclass(MetaStrategy, StrategyBase)):
         """
         Returns a list of the existing data names
         """
-        return keys(self.env.datasbyname)
+        return list(self.env.datasbyname.keys())
 
     def getdatabyname(self, name):
         """
@@ -957,7 +947,7 @@ class Strategy(with_metaclass(MetaStrategy, StrategyBase)):
           - the submitted order
 
         """
-        if isinstance(data, string_types):
+        if isinstance(data, str):
             data = self.getdatabyname(data)
 
         data = data if data is not None else self.datas[0]
@@ -1006,7 +996,7 @@ class Strategy(with_metaclass(MetaStrategy, StrategyBase)):
 
         Returns: the submitted order
         """
-        if isinstance(data, string_types):
+        if isinstance(data, str):
             data = self.getdatabyname(data)
 
         data = data if data is not None else self.datas[0]
@@ -1045,7 +1035,7 @@ class Strategy(with_metaclass(MetaStrategy, StrategyBase)):
 
         Returns: the submitted order
         """
-        if isinstance(data, string_types):
+        if isinstance(data, str):
             data = self.getdatabyname(data)
         elif data is None:
             data = self.data
@@ -1385,7 +1375,7 @@ class Strategy(with_metaclass(MetaStrategy, StrategyBase)):
 
           - ``None`` if no order has been issued (``target == position.size``)
         """
-        if isinstance(data, string_types):
+        if isinstance(data, str):
             data = self.getdatabyname(data)
         elif data is None:
             data = self.data
@@ -1423,7 +1413,7 @@ class Strategy(with_metaclass(MetaStrategy, StrategyBase)):
           - ``None`` if no order has been issued
         """
 
-        if isinstance(data, string_types):
+        if isinstance(data, str):
             data = self.getdatabyname(data)
         elif data is None:
             data = self.data
@@ -1487,7 +1477,7 @@ class Strategy(with_metaclass(MetaStrategy, StrategyBase)):
 
           - ``None`` if no order has been issued (``target == position.size``)
         """
-        if isinstance(data, string_types):
+        if isinstance(data, str):
             data = self.getdatabyname(data)
         elif data is None:
             data = self.data
@@ -1550,7 +1540,7 @@ class Strategy(with_metaclass(MetaStrategy, StrategyBase)):
         positions = broker.positions
 
         posbyname = collections.OrderedDict()
-        for name, data in iteritems(self.env.datasbyname):
+        for name, data in self.env.datasbyname.items():
             posbyname[name] = positions[data]
 
         return posbyname
@@ -1614,9 +1604,9 @@ class MetaSigStrategy(Strategy.__class__):
         _data = _obj.p._data
         if _data is None:
             _obj._dtarget = _obj.data0
-        elif isinstance(_data, integer_types):
+        elif isinstance(_data, int):
             _obj._dtarget = _obj.datas[_data]
-        elif isinstance(_data, string_types):
+        elif isinstance(_data, str):
             _obj._dtarget = _obj.getdatabyname(_data)
         elif isinstance(_data, bt.LineRoot):
             _obj._dtarget = _data
@@ -1645,7 +1635,7 @@ class MetaSigStrategy(Strategy.__class__):
         return _obj, args, kwargs
 
 
-class SignalStrategy(with_metaclass(MetaSigStrategy, Strategy)):
+class SignalStrategy(Strategy, metaclass=MetaSigStrategy):
     """This subclass of ``Strategy`` is meant to to auto-operate using
     **signals**.
 

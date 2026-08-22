@@ -18,7 +18,6 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #
 ###############################################################################
-from __future__ import absolute_import, division, print_function, unicode_literals
 
 import collections
 import datetime
@@ -29,7 +28,6 @@ import os.path
 import backtrader as bt
 from backtrader import date2num, num2date, time2num, TimeFrame, dataseries, metabase
 
-from backtrader.utils.py3 import with_metaclass, zip, range, string_types
 from backtrader.utils import tzparse
 from .dataseries import SimpleFilterWrapper
 from .resamplerfilter import Resampler, Replayer
@@ -70,7 +68,7 @@ class MetaAbstractDataBase(dataseries.OHLCDateTime.__class__):
 
         # Either set by subclass or the parameter or use the dataname (ticker)
         _obj._name = _obj._name or _obj.p.name
-        if not _obj._name and isinstance(_obj.p.dataname, string_types):
+        if not _obj._name and isinstance(_obj.p.dataname, str):
             _obj._name = _obj.p.dataname
         _obj._compression = _obj.p.compression
         _obj._timeframe = _obj.p.timeframe
@@ -120,7 +118,7 @@ class MetaAbstractDataBase(dataseries.OHLCDateTime.__class__):
         return _obj, args, kwargs
 
 
-class AbstractDataBase(with_metaclass(MetaAbstractDataBase, dataseries.OHLCDateTime)):
+class AbstractDataBase(dataseries.OHLCDateTime, metaclass=MetaAbstractDataBase):
 
     params = (
         ("dataname", None),
@@ -209,7 +207,7 @@ class AbstractDataBase(with_metaclass(MetaAbstractDataBase, dataseries.OHLCDateT
         self._calendar = cal = self.p.calendar
         if cal is None:
             self._calendar = self._env._tradingcal
-        elif isinstance(cal, string_types):
+        elif isinstance(cal, str):
             self._calendar = PandasMarketCalendar(calendar=cal)
 
         self._started = True
@@ -614,7 +612,7 @@ class DataBase(AbstractDataBase):
     pass
 
 
-class FeedBase(with_metaclass(metabase.MetaParams, object)):
+class FeedBase(metaclass=metabase.MetaParams):
     params = () + DataBase.params._gettuple()
 
     def __init__(self):
@@ -661,7 +659,7 @@ class MetaCSVDataBase(DataBase.__class__):
         return _obj, args, kwargs
 
 
-class CSVDataBase(with_metaclass(MetaCSVDataBase, DataBase)):
+class CSVDataBase(DataBase, metaclass=MetaCSVDataBase):
     """
     Base class for classes implementing CSV DataFeeds
 

@@ -29,11 +29,8 @@ to define interfaces and hierarchy for the real operational classes
 
 """
 
-from __future__ import absolute_import, division, print_function, unicode_literals
-
 import operator
 
-from .utils.py3 import range, with_metaclass
 
 from . import metabase
 
@@ -58,7 +55,7 @@ class MetaLineRoot(metabase.MetaParams):
         return _obj, args, kwargs
 
 
-class LineRoot(with_metaclass(MetaLineRoot, object)):
+class LineRoot(metaclass=MetaLineRoot):
     """
     Defines a common base and interfaces for Single and Multiple
     LineXXX instances

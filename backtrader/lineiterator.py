@@ -18,13 +18,11 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #
 ###############################################################################
-from __future__ import absolute_import, division, print_function, unicode_literals
 
 import collections
 import operator
 import sys
 
-from .utils.py3 import map, range, zip, with_metaclass, string_types
 from .utils import DotDict
 
 from .lineroot import LineRoot, LineSingle
@@ -145,7 +143,7 @@ class MetaLineIterator(LineSeries.__class__):
         return _obj, args, kwargs
 
 
-class LineIterator(with_metaclass(MetaLineIterator, LineSeries)):
+class LineIterator(LineSeries, metaclass=MetaLineIterator):
     _nextforce = False  # force cerebro to run in next mode (runonce=False)
 
     _mindatas = 1
@@ -229,7 +227,7 @@ class LineIterator(with_metaclass(MetaLineIterator, LineSeries)):
         if not owner:
             owner = 0
 
-        if isinstance(owner, string_types):
+        if isinstance(owner, str):
             owner = [owner]
         elif not isinstance(owner, collections.Iterable):
             owner = [owner]
@@ -237,18 +235,18 @@ class LineIterator(with_metaclass(MetaLineIterator, LineSeries)):
         if not own:
             own = range(len(owner))
 
-        if isinstance(own, string_types):
+        if isinstance(own, str):
             own = [own]
         elif not isinstance(own, collections.Iterable):
             own = [own]
 
         for lineowner, lineown in zip(owner, own):
-            if isinstance(lineowner, string_types):
+            if isinstance(lineowner, str):
                 lownerref = getattr(self._owner.lines, lineowner)
             else:
                 lownerref = self._owner.lines[lineowner]
 
-            if isinstance(lineown, string_types):
+            if isinstance(lineown, str):
                 lownref = getattr(self.lines, lineown)
             else:
                 lownref = self.lines[lineown]

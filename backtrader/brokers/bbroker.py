@@ -18,7 +18,6 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #
 ###############################################################################
-from __future__ import absolute_import, division, print_function, unicode_literals
 
 import collections
 import datetime
@@ -27,7 +26,6 @@ import backtrader as bt
 from backtrader.comminfo import CommInfoBase
 from backtrader.order import Order, BuyOrder, SellOrder
 from backtrader.position import Position
-from backtrader.utils.py3 import string_types, integer_types
 
 __all__ = ["BackBroker", "BrokerBack"]
 
@@ -1136,7 +1134,7 @@ class BackBroker(bt.BrokerBase):
             return self._fhistlast
 
         dt = f[0]  # date/datetime instance
-        if isinstance(dt, string_types):
+        if isinstance(dt, str):
             dtfmt = "%Y-%m-%d"
             if "T" in dt:
                 dtfmt += "T%H:%M:%S"
@@ -1174,7 +1172,7 @@ class BackBroker(bt.BrokerBase):
 
                 if dataidx is None:
                     d = self.cerebro.datas[0]
-                elif isinstance(dataidx, integer_types):
+                elif isinstance(dataidx, int):
                     d = self.cerebro.datas[dataidx]
                 else:  # assume string
                     d = self.cerebro.datasbyname[dataidx]
@@ -1183,7 +1181,7 @@ class BackBroker(bt.BrokerBase):
                     break  # may start later as oter data feeds
 
                 dt = uhorder[0]  # date/datetime instance
-                if isinstance(dt, string_types):
+                if isinstance(dt, str):
                     dtfmt = "%Y-%m-%d"
                     if "T" in dt:
                         dtfmt += "T%H:%M:%S"

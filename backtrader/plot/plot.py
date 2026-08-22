@@ -18,7 +18,6 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #
 ###############################################################################
-from __future__ import absolute_import, division, print_function, unicode_literals
 
 import bisect
 import collections
@@ -35,7 +34,6 @@ import matplotlib.font_manager as mfontmgr
 import matplotlib.legend as mlegend
 import matplotlib.ticker as mticker
 
-from ..utils.py3 import range, with_metaclass, string_types, integer_types
 from .. import AutoInfoClass, MetaParams, TimeFrame, date2num
 
 from .finance import plot_candlestick, plot_ohlc, plot_volume, plot_lineonclose
@@ -93,7 +91,7 @@ class PInfo(object):
         return self.zorder[ax]
 
 
-class Plot_OldSync(with_metaclass(MetaParams, object)):
+class Plot_OldSync(metaclass=MetaParams):
     params = (("scheme", PlotScheme()),)
 
     def __init__(self, **kwargs):
@@ -537,7 +535,7 @@ class Plot_OldSync(with_metaclass(MetaParams, object)):
                 fref, fcol = lineplotinfo._get(fattr, (None, None))
                 if fref is not None:
                     y1 = np.array(lplot)
-                    if isinstance(fref, integer_types):
+                    if isinstance(fref, int):
                         y2 = np.full_like(y1, fref)
                     else:  # string, naming a line, nothing else is supported
                         l2 = getattr(ind, fref)

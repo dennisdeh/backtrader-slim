@@ -18,14 +18,13 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #
 ###############################################################################
-from __future__ import absolute_import, division, print_function, unicode_literals
 
 import datetime
 
 import backtrader as bt
 
 
-class DaySplitter_Close(bt.with_metaclass(bt.MetaParams, object)):
+class DaySplitter_Close(metaclass=bt.MetaParams):
     """
     Splits a daily bar in two parts simulating 2 ticks which will be used to
     replay the data:

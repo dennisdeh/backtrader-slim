@@ -18,10 +18,7 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #
 ###############################################################################
-from __future__ import absolute_import, division, print_function, unicode_literals
 
-
-from .utils.py3 import range, with_metaclass
 
 from .lineiterator import LineIterator, IndicatorBase
 from .lineseries import LineSeriesMaker, Lines
@@ -85,7 +82,7 @@ class MetaIndicator(IndicatorBase.__class__):
             cls.oncestart = cls.oncestart_via_nextstart
 
 
-class Indicator(with_metaclass(MetaIndicator, IndicatorBase)):
+class Indicator(IndicatorBase, metaclass=MetaIndicator):
     _ltype = LineIterator.IndType
 
     csv = False
@@ -157,5 +154,5 @@ class MtLinePlotterIndicator(Indicator.__class__):
         return _obj, args, kwargs
 
 
-class LinePlotterIndicator(with_metaclass(MtLinePlotterIndicator, Indicator)):
+class LinePlotterIndicator(Indicator, metaclass=MtLinePlotterIndicator):
     pass

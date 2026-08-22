@@ -18,8 +18,6 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #
 ###############################################################################
-from __future__ import (absolute_import, division, print_function,
-                        unicode_literals)
 
 import testcommon
 
@@ -36,10 +34,11 @@ class FakeCommInfo(object):
 
 
 class FakeData(object):
-    '''
+    """
     Minimal interface to avoid errors when trade tries to get information from
     the data during the test
-    '''
+    """
+
     def __len__(self):
         return 0
 
@@ -55,10 +54,9 @@ class FakeData(object):
 def test_run(main=False):
     tr = trade.Trade(data=FakeData())
 
-    order = bt.BuyOrder(data=FakeData(),
-                        size=0, price=1.0,
-                        exectype=bt.Order.Market,
-                        simulated=True)
+    order = bt.BuyOrder(
+        data=FakeData(), size=0, price=1.0, exectype=bt.Order.Market, simulated=True
+    )
 
     commrate = 0.025
     size = 10
@@ -66,8 +64,15 @@ def test_run(main=False):
     value = size * price
     commission = value * commrate
 
-    tr.update(order=order, size=size, price=price, value=value,
-              commission=commission, pnl=0.0, comminfo=FakeCommInfo())
+    tr.update(
+        order=order,
+        size=size,
+        price=price,
+        value=value,
+        commission=commission,
+        pnl=0.0,
+        comminfo=FakeCommInfo(),
+    )
 
     assert not tr.isclosed
     assert tr.size == size
@@ -82,8 +87,15 @@ def test_run(main=False):
     upvalue = upsize * upprice
     upcomm = abs(value) * commrate
 
-    tr.update(order=order, size=upsize, price=upprice, value=upvalue,
-              commission=upcomm, pnl=0.0, comminfo=FakeCommInfo())
+    tr.update(
+        order=order,
+        size=upsize,
+        price=upprice,
+        value=upvalue,
+        commission=upcomm,
+        pnl=0.0,
+        comminfo=FakeCommInfo(),
+    )
 
     assert not tr.isclosed
     assert tr.size == size + upsize
@@ -100,8 +112,15 @@ def test_run(main=False):
     upvalue = upsize * upprice
     upcomm = abs(value) * commrate
 
-    tr.update(order=order, size=upsize, price=upprice, value=upvalue,
-              commission=upcomm, pnl=0.0, comminfo=FakeCommInfo())
+    tr.update(
+        order=order,
+        size=upsize,
+        price=upprice,
+        value=upvalue,
+        commission=upcomm,
+        pnl=0.0,
+        comminfo=FakeCommInfo(),
+    )
 
     assert not tr.isclosed
     assert tr.size == size + upsize
@@ -118,8 +137,15 @@ def test_run(main=False):
     upvalue = upsize * upprice
     upcomm = abs(value) * commrate
 
-    tr.update(order=order, size=upsize, price=upprice, value=upvalue,
-              commission=upcomm, pnl=0.0, comminfo=FakeCommInfo())
+    tr.update(
+        order=order,
+        size=upsize,
+        price=upprice,
+        value=upvalue,
+        commission=upcomm,
+        pnl=0.0,
+        comminfo=FakeCommInfo(),
+    )
 
     assert tr.isclosed
     assert tr.size == size + upsize
@@ -128,5 +154,5 @@ def test_run(main=False):
     assert tr.commission == commission + upcomm
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     test_run(main=True)

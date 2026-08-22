@@ -18,7 +18,6 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #
 ###############################################################################
-from __future__ import absolute_import, division, print_function, unicode_literals
 
 import collections
 import io
@@ -31,10 +30,9 @@ except AttributeError:  # For old Python versions
     collectionsAbc = collections  # Используем collections.Iterable
 
 import backtrader as bt
-from backtrader.utils.py3 import map, with_metaclass, string_types, integer_types
 
 
-class WriterBase(with_metaclass(bt.MetaParams, object)):
+class WriterBase(metaclass=bt.MetaParams):
     pass
 
 
@@ -113,7 +111,7 @@ class WriterFile(WriterBase):
             if self.p.out is None:
                 self.out = sys.stdout
                 self.close_out = False
-            elif isinstance(self.p.out, string_types):
+            elif isinstance(self.p.out, str):
                 self.out = open(self.p.out, "w")
                 self.close_out = True
             else:
@@ -191,10 +189,10 @@ class WriterFile(WriterBase):
             if sclass:
                 kline += " " + val.__name__
                 self.writeline(kline)
-            elif isinstance(val, string_types):
+            elif isinstance(val, str):
                 kline += " " + val
                 self.writeline(kline)
-            elif isinstance(val, integer_types):
+            elif isinstance(val, int):
                 kline += " " + str(val)
                 self.writeline(kline)
             elif isinstance(val, float):

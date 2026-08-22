@@ -29,11 +29,8 @@ lines at once.
 
 """
 
-from __future__ import absolute_import, division, print_function, unicode_literals
-
 import sys
 
-from .utils.py3 import map, range, string_types, with_metaclass
 
 from .linebuffer import LineBuffer, LineActions, LinesOperation, LineDelay, NAN
 from .lineroot import LineRoot, LineSingle, LineMultiple
@@ -151,7 +148,7 @@ class Lines(object):
         l2add = enumerate(lines2add, start=l2start)
         l2alias = {} if lalias is None else lalias._getkwargsdefault()
         for line, linealias in l2add:
-            if not isinstance(linealias, string_types):
+            if not isinstance(linealias, str):
                 # a tuple or list was passed, 1st is name
                 linealias = linealias[0]
 
@@ -163,14 +160,14 @@ class Lines(object):
         # directive 'linealias', hence the confusion here (the LineAlias come
         # from the directive 'lines')
         for line, linealias in enumerate(newcls._getlines()):
-            if not isinstance(linealias, string_types):
+            if not isinstance(linealias, str):
                 # a tuple or list was passed, 1st is name
                 linealias = linealias[0]
 
             desc = LineAlias(line)  # keep a reference below
             if linealias in l2alias:
                 extranames = l2alias[linealias]
-                if isinstance(linealias, string_types):
+                if isinstance(linealias, str):
                     extranames = [extranames]
 
                 for ename in extranames:
@@ -391,7 +388,7 @@ class MetaLineSeries(LineMultiple.__class__):
                 "aliased": cls.__name__,
             }
 
-            if not isinstance(alias, string_types):
+            if not isinstance(alias, str):
                 # a tuple or list was passed, 1st is name, 2nd plotname
                 aliasplotname = alias[1]
                 alias = alias[0]
@@ -442,7 +439,7 @@ class MetaLineSeries(LineMultiple.__class__):
         return _obj, args, kwargs
 
 
-class LineSeries(with_metaclass(MetaLineSeries, LineMultiple)):
+class LineSeries(LineMultiple, metaclass=MetaLineSeries):
     plotinfo = dict(
         plot=True,
         plotmaster=None,
@@ -499,7 +496,7 @@ class LineSeries(with_metaclass(MetaLineSeries, LineMultiple)):
         return self.params._getvalues()
 
     def _getline(self, line, minusall=False):
-        if isinstance(line, string_types):
+        if isinstance(line, str):
             lineobj = getattr(self.lines, line)
         else:
             if line == -1:  # restore original api behavior - default -> 0
