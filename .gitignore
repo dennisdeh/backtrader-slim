@@ -70,3 +70,9 @@ samples2/
 datas/*.py
 
 .idea/
+
+# Personal Claude Code settings for this checkout
+.claude/settings.local.json
+
+# Personal scratch notes, not part of the project
+prompts.md
