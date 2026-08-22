@@ -1,0 +1,20 @@
+# Development environment for Slim Backtrader.
+#
+#   conda env create -f environment.yml
+#   conda activate backtrader
+#   pip install -e .
+#
+# The library itself has no mandatory runtime dependencies; matplotlib is only
+# needed for plotting, and pandas/numpy only for the pandas/blaze style feeds.
+# Everything listed here is what the test suite and the tooling need.
+name: backtrader
+channels:
+  - conda-forge
+dependencies:
+  - python=3.13
+  - pytest
+  - matplotlib
+  - numpy
+  - pandas
+  - black
+  - pip
