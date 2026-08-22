@@ -2,19 +2,23 @@
 #
 #   conda env create -f environment.yml
 #   conda activate backtrader
-#   pip install -e .
+#   pip install -e ".[dev]"
 #
-# The library itself has no mandatory runtime dependencies; matplotlib is only
-# needed for plotting, and pandas/numpy only for the pandas/blaze style feeds.
-# Everything listed here is what the test suite and the tooling need.
+# The engine itself has no third-party runtime dependencies. Everything below
+# is for the test suite, the optional feeds and the tooling; versions are left
+# unpinned so a fresh env gets current releases. The floors that actually
+# matter to the package are declared in pyproject.toml.
 name: backtrader
 channels:
   - conda-forge
 dependencies:
-  - python=3.13
+  - python>=3.13
   - pytest
-  - matplotlib
-  - numpy
-  - pandas
+  - pytest-cov
   - black
+  - python-build
+  - matplotlib      # optional: plotting
+  - pandas>=2.2     # optional: PandasData feed
+  - numpy
+  - requests        # optional: Yahoo online feed
   - pip

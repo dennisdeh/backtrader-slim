@@ -1,20 +1,105 @@
-# Build backend is declared explicitly so that adding this file for the Black
-# configuration does not change how pip builds the package: setup.py remains
-# the source of packaging metadata.
 [build-system]
-requires = ["setuptools>=61", "wheel"]
+requires = ["setuptools>=77"]
 build-backend = "setuptools.build_meta"
+
+[project]
+name = "backtrader"
+description = "BackTesting Engine"
+readme = "README.md"
+requires-python = ">=3.13"
+license = "GPL-3.0-or-later"
+license-files = ["LICENSE"]
+keywords = ["trading", "backtesting", "finance", "development"]
+dynamic = ["version"]
+
+authors = [
+    { name = "Daniel Rodriguez", email = "danjrod@gmail.com" },
+]
+maintainers = [
+    { name = "Dennis Hansen", email = "dennishansendeh@gmail.com" },
+]
+
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Intended Audience :: Developers",
+    "Intended Audience :: Financial and Insurance Industry",
+    "Topic :: Software Development",
+    "Topic :: Office/Business :: Financial",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "Operating System :: OS Independent",
+]
+
+# The core engine has no third-party runtime dependencies at all: every
+# optional integration imports its package lazily and raises a clear error if
+# it is missing. Keep it that way - `dependencies` must stay empty.
+dependencies = []
+
+[project.optional-dependencies]
+plotting = ["matplotlib>=3.9"]
+pandas = ["pandas>=2.2"]
+online = ["requests>=2.32"]
+calendars = ["pandas_market_calendars>=4.4"]
+talib = ["TA-Lib>=0.6"]
+dev = [
+    "pytest>=8.2",
+    "pytest-cov>=5.0",
+    "black>=24.3",
+    "build>=1.2",
+    "matplotlib>=3.9",
+    "pandas>=2.2",
+    "requests>=2.32",
+]
+
+[project.scripts]
+btrun = "backtrader.btrun:btrun"
+
+[project.urls]
+Homepage = "https://github.com/dennisdeh/backtrader"
+Repository = "https://github.com/dennisdeh/backtrader"
+Changelog = "https://github.com/dennisdeh/backtrader/blob/master/changelog.txt"
+Upstream = "https://github.com/mementum/backtrader"
+
+[tool.setuptools.dynamic]
+version = { attr = "backtrader.version.__version__" }
+
+[tool.setuptools.packages.find]
+include = ["backtrader*"]
+namespaces = false
 
 [tool.black]
 line-length = 88
 target-version = ["py313"]
-# samples/, contrib/ and tools/ are upstream material that is being pruned
-# rather than maintained; reformatting them would only obscure the removals.
+# samples/ and contrib/ are upstream material that is being pruned rather than
+# maintained; reformatting them would only obscure the removals.
 extend-exclude = '''
 /(
     build
   | samples
   | contrib
-  | tools
 )/
 '''
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "--strict-markers"
+filterwarnings = [
+    "error::DeprecationWarning:backtrader.*",
+    "error::SyntaxWarning",
+]
+markers = [
+    "network: test needs internet access (deselect with '-m \"not network\"')",
+    "plotting: test renders a chart and needs matplotlib",
+]
+
+[tool.coverage.run]
+source = ["backtrader"]
+branch = true
+
+[tool.coverage.report]
+exclude_also = [
+    "if TYPE_CHECKING:",
+    "raise NotImplementedError",
+    "if __name__ == .__main__.:",
+]
