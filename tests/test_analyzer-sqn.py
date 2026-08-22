@@ -34,6 +34,8 @@ import backtrader.indicators as btind
 
 
 class TestStrategy(bt.Strategy):
+    __test__ = False  # not a pytest class
+
     params = (
         ("period", 15),
         ("maxtrades", None),

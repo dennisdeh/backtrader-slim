@@ -22,6 +22,8 @@ import testcommon
 
 
 class TestFrompackages(testcommon.SampleParamsHolder):
+    __test__ = False  # not a pytest class
+
     """
     This class is used for testing that inheriting from base class that
     uses `frompackages` import mechanism, doesnt brake the functionality

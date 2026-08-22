@@ -20,6 +20,7 @@
 ###############################################################################
 
 import datetime
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 import math
 import time as _time
 
@@ -40,29 +41,37 @@ TIME_MAX = datetime.time(23, 59, 59, 999990)
 TIME_MIN = datetime.time.min
 
 
-def tzparse(tz):
-    # If no object has been provided by the user and a timezone can be
-    # found via contractdtails, then try to get it from pytz, which may or
-    # may not be available.
-    tzstr = isinstance(tz, str)
-    if tz is None or not tzstr:
-        return Localizer(tz)
+class _ZoneInfo(ZoneInfo):
+    """A stdlib timezone that also answers to pytz's ``localize``.
 
-    try:
-        import pytz  # keep the import very local
-    except ImportError:
-        return Localizer(tz)  # nothing can be done
+    backtrader calls ``tz.localize(dt)`` on whatever ``tzparse`` returns.
+    ``zoneinfo.ZoneInfo`` has no such method and no ``__dict__``, so the
+    method cannot be patched onto an instance the way :func:`Localizer`
+    does it for other tzinfo objects - hence the subclass.
+    """
+
+    def localize(self, dt):
+        return dt.replace(tzinfo=self)
+
+
+def tzparse(tz):
+    # A tzinfo object (or None) is used as given; only a *name* has to be
+    # resolved. Resolution goes through the standard library: pytz is not a
+    # dependency of this fork, and zoneinfo covers the same tz database.
+    if tz is None or not isinstance(tz, str):
+        return Localizer(tz)
 
     tzs = tz
     if tzs == "CST":  # usual alias
         tzs = "CST6CDT"
 
     try:
-        tz = pytz.timezone(tzs)
-    except pytz.UnknownTimeZoneError:
-        return Localizer(tz)  # nothing can be done
-
-    return tz
+        return _ZoneInfo(tzs)
+    except (ZoneInfoNotFoundError, ValueError):
+        # An unknown name is not fatal: the caller gets a naive-friendly
+        # localizer rather than an exception, which is what the pytz-era
+        # code intended (and failed) to do.
+        return Localizer(_UTC())
 
 
 def Localizer(tz):

@@ -30,6 +30,8 @@ chkdatas = 1
 
 
 class TestStrategy(bt.Strategy):
+    __test__ = False  # a bt.Strategy, not a pytest class
+
     params = dict(main=False)
 
     def __init__(self):

@@ -50,6 +50,8 @@ class TimeFrame(object):
     @classmethod
     def getname(cls, tframe, compression=None):
         tname = cls.Names[tframe]
+        if compression is None:
+            compression = 1
         if compression > 1 or tname == cls.Names[-1]:
             return tname  # for plural or 'NoTimeFrame' return plain entry
 

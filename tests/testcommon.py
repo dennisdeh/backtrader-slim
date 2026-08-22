@@ -19,20 +19,11 @@
 #
 ###############################################################################
 
-import datetime
-import os
-import os.path
-import sys
-
-# append module root directory to sys.path
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-
 import backtrader as bt
-import backtrader.utils.flushfile
 from backtrader.metabase import ParamsBase
 
-modpath = os.path.dirname(os.path.abspath(__file__))
-dataspath = "../datas"
+from conftest import FROMDATE, TODATE, csvdata, datafile
+
 datafiles = [
     "2006-day-001.txt",
     "2006-week-001.txt",
@@ -40,16 +31,10 @@ datafiles = [
 
 DATAFEED = bt.feeds.BacktraderCSVData
 
-FROMDATE = datetime.datetime(2006, 1, 1)
-TODATE = datetime.datetime(2006, 12, 31)
-
 
 def getdata(index, fromdate=FROMDATE, todate=TODATE):
-
-    datapath = os.path.join(modpath, dataspath, datafiles[index])
-    data = DATAFEED(dataname=datapath, fromdate=fromdate, todate=todate)
-
-    return data
+    """The indexed standard data feed, used by every golden-value test."""
+    return csvdata(datafiles[index], fromdate=fromdate, todate=todate)
 
 
 def runtest(
@@ -112,6 +97,8 @@ def runtest(
 
 
 class TestStrategy(bt.Strategy):
+    __test__ = False  # a bt.Strategy, not a pytest class
+
     params = dict(
         main=False,
         chkind=[],

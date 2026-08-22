@@ -91,6 +91,8 @@ SELLEXEC = [
 
 
 class TestStrategy(bt.Strategy):
+    __test__ = False  # a bt.Strategy, not a pytest class
+
     params = (
         ("period", 15),
         ("printdata", True),

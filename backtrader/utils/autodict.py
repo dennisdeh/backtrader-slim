@@ -66,7 +66,9 @@ class AutoDict(dict):
         return self[key]
 
     def __setattr__(self, key, value):
-        if False and key.startswith("_"):
+        if key.startswith("_"):
+            # a real attribute, not an entry: this is what makes _close()
+            # able to set the _closed flag (AutoOrderedDict does the same)
             self.__dict__[key] = value
             return
 
