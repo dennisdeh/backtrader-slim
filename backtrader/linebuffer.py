@@ -37,7 +37,6 @@ import math
 
 
 from .lineroot import LineRoot, LineSingle, LineMultiple
-from . import metabase
 from .utils import num2date, time2num
 
 NAN = float("NaN")

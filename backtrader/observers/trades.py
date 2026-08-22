@@ -23,8 +23,6 @@ import uuid
 
 from .. import Observer
 
-from ..trade import Trade
-
 
 class Trades(Observer):
     """This observer keeps track of full trades and plot the PnL level achieved

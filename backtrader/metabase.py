@@ -23,8 +23,6 @@ from collections import OrderedDict
 import itertools
 import sys
 
-import backtrader as bt
-
 
 def findbases(kls, topclass):
     retval = list()

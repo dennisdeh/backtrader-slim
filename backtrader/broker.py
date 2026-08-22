@@ -22,7 +22,6 @@
 from backtrader.comminfo import CommInfoBase
 from backtrader.metabase import MetaParams
 
-from . import fillers as fillers
 from . import fillers as filler
 
 

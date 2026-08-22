@@ -21,8 +21,6 @@
 
 import argparse
 import datetime
-import os.path
-import time
 import sys
 
 

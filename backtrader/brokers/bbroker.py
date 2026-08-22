@@ -23,7 +23,6 @@ import collections
 import datetime
 
 import backtrader as bt
-from backtrader.comminfo import CommInfoBase
 from backtrader.order import Order, BuyOrder, SellOrder
 from backtrader.position import Position
 

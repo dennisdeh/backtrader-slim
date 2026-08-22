@@ -22,7 +22,6 @@
 import argparse
 import datetime
 import inspect
-import itertools
 import random
 import string
 import sys
@@ -55,7 +54,8 @@ def btrun(pargs=""):
     args = parse_args(pargs)
 
     if args.flush:
-        import backtrader.utils.flushfile
+        # imported for its side effect: it makes stdout unbuffered
+        import backtrader.utils.flushfile  # noqa: F401
 
     stdstats = not args.nostdstats
 

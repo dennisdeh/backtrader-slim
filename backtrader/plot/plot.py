@@ -22,16 +22,13 @@
 import bisect
 import collections
 import datetime
-import itertools
 import math
 import operator
 import sys
 
 import matplotlib
 import numpy as np  # guaranteed by matplotlib
-import matplotlib.dates as mdates
 import matplotlib.font_manager as mfontmgr
-import matplotlib.legend as mlegend
 import matplotlib.ticker as mticker
 
 from .. import AutoInfoClass, MetaParams, TimeFrame, date2num

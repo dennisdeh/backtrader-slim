@@ -19,10 +19,6 @@
 #
 ###############################################################################
 
-import sys
-
-import calendar
-import datetime
 
 import backtrader as bt
 from .. import Observer, TimeFrame

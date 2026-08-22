@@ -19,7 +19,6 @@
 #
 ###############################################################################
 
-import datetime
 
 from .metabase import MetaParams
 

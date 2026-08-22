@@ -20,10 +20,6 @@
 ###############################################################################
 
 from urllib.parse import quote as urlquote
-from urllib.request import ProxyHandler
-from urllib.request import build_opener
-from urllib.request import install_opener
-from urllib.request import urlopen
 
 import collections
 from datetime import date, datetime

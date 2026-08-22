@@ -21,7 +21,6 @@
 
 from datetime import date, datetime, timedelta
 
-from backtrader import TimeFrame
 from .. import metabase
 
 

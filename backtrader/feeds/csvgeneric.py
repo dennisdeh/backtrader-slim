@@ -20,7 +20,6 @@
 ###############################################################################
 
 from datetime import datetime
-import itertools
 
 from .. import feed, TimeFrame
 from ..utils import date2num

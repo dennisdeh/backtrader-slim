@@ -20,9 +20,6 @@
 ###############################################################################
 
 
-from copy import copy
-
-
 class Position(object):
     """
     Keeps and updates the size and price of a position. The object has no

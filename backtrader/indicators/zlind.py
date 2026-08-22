@@ -22,9 +22,6 @@
 import sys
 
 
-import backtrader as bt
-
-
 from . import MovingAverageBase, MovAv
 
 

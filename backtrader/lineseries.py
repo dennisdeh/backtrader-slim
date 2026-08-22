@@ -35,7 +35,6 @@ import sys
 from .linebuffer import LineBuffer, LineActions, LinesOperation, LineDelay, NAN
 from .lineroot import LineRoot, LineSingle, LineMultiple
 from .metabase import AutoInfoClass
-from . import metabase
 
 
 class LineAlias(object):

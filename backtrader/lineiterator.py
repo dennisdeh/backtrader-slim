@@ -20,7 +20,6 @@
 ###############################################################################
 
 import collections
-import operator
 import sys
 
 from .utils import DotDict
@@ -29,7 +28,6 @@ from .lineroot import LineRoot, LineSingle
 from .linebuffer import LineActions, LineNum
 from .lineseries import LineSeries, LineSeriesMaker
 from .dataseries import DataSeries
-from . import metabase
 
 
 class MetaLineIterator(LineSeries.__class__):
