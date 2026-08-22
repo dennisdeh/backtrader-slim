@@ -85,13 +85,14 @@ class CalendarDays(metaclass=metabase.MetaParams):
         """
         tm = data.datetime.time(0)  # get time part
 
-        # Same price for all bars
-        if self.p.fill_price > 0:
-            price = self.p.fill_price
-        elif not self.p.fill_price:
+        # Same price for all bars. None and 0 are tested first: the
+        # documented default is None, and comparing it with > raises.
+        if not self.p.fill_price:  # None or 0
             price = data.close[-1]
         elif self.p.fill_price == -1:
             price = (data.high[-1] + data.low[-1]) / 2.0
+        else:
+            price = self.p.fill_price
 
         while lastdt < dt:
             lastdt += self.ONEDAY
