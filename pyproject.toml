@@ -1,0 +1,20 @@
+# Build backend is declared explicitly so that adding this file for the Black
+# configuration does not change how pip builds the package: setup.py remains
+# the source of packaging metadata.
+[build-system]
+requires = ["setuptools>=61", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[tool.black]
+line-length = 88
+target-version = ["py313"]
+# samples/, contrib/ and tools/ are upstream material that is being pruned
+# rather than maintained; reformatting them would only obscure the removals.
+extend-exclude = '''
+/(
+    build
+  | samples
+  | contrib
+  | tools
+)/
+'''
