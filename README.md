@@ -90,11 +90,15 @@ Works with:
 
 ## Version Numbering
 
-Follows format `X.Y.Z.I` where:
+Plain semantic versioning, `X.Y.Z`, starting at `2.0.0`:
 
-- `X`: Major version (stable, unless significant overhauls, e.g., numpy integration).
-- `Y`: Minor version (new features or incompatible API changes).
-- `Z`: Revision updates (documentation tweaks, minor changes, bug fixes).
-- `I`: Number of built-in indicators.
+- `X`: Major version — incompatible API changes. Removing features is the point
+  of this fork, so expect these.
+- `Y`: Minor version — new functionality, backwards compatible.
+- `Z`: Patch — bug fixes and documentation.
+
+Upstream backtrader used a fourth digit for the number of built-in indicators
+(`1.9.78.123`). That digit is retired as of `2.0.0`, and `__btversion__` is now
+a 3-tuple.
 
 ---

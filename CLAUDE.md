@@ -178,8 +178,8 @@ And what bounds it:
 
 - **The next release is `2.0.0`, plain semver.** Upstream's `X.Y.Z.I` scheme —
   where `I` counted the built-in indicators — is **retired**; the fourth digit is
-  gone, and `__btversion__` in `backtrader/version.py` becomes a 3-tuple.
-  Current tracked version is still `1.9.78.123` **(pending the 2.0.0 bump)**.
+  gone, and `__btversion__` in `backtrader/version.py` is a 3-tuple, derived from
+  `__version__` — bumping the string is the whole change.
 - Bump the version **only when asked**.
 - **Never run `pypi.sh`, `setup.py bdist_wheel` for release, or `twine upload`.**
   Publishing is not an agent action.

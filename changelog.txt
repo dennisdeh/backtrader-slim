@@ -1,3 +1,10 @@
+2.0.0:
+  - Version scheme change: adopt plain semantic versioning X.Y.Z. The upstream
+    fourth digit, which counted the built-in indicators, is retired and
+    `__btversion__` is now a 3-tuple. Code comparing against a 4-element
+    `__btversion__` will break.
+  - Add environment.yml: development environment on Python 3.13.
+
 1.9.78.123:
   - PR#479 Fix errors for simulated orders
 1.9.77.123:
