@@ -120,8 +120,7 @@ And what bounds it:
   `gh` wastes a turn.
 - Upstream (`mementum/backtrader`) is not configured as a remote. Add one only if
   asked.
-- Never `git add -A` from the repo root while the untracked strays listed under
-  *Housekeeping* are still present.
+- Read `git status` before staging; never `git add -A` from the repo root blind.
 
 ## Testing  **[core]**
 
@@ -168,11 +167,13 @@ And what bounds it:
 
 ## Formatting  **[core]**
 
-- **Black (88 columns) is the formatter.** Plan of record: one formatting-only
-  commit across `backtrader/`, touching nothing else **(pending)**; after that,
-  Black every file a task modifies.
-- Until that commit lands, match the surrounding 79-column upstream style rather
-  than reformatting a file as a side effect.
+- **Black (88 columns) is the formatter**, configured in `pyproject.toml`
+  (`target-version = py313`). The one-off sweep across `backtrader/` landed on
+  2026-08-22 (167 files); **there should never be a second wholesale reformat.**
+- From here, run Black on the files a task modifies — not on the tree.
+- `samples/`, `contrib/` and `tools/` are excluded on purpose: they are upstream
+  material being pruned, and reformatting them would bury the removals in noise.
+  `tests/` is not excluded but was not swept; it converges file by file.
 
 ## Versioning and release  **[core]**
 
@@ -234,11 +235,16 @@ behind a constant belong in the docs.
 
 ## Housekeeping  **[situational]**
 
-The repository root contains files that are **not part of this project**:
-`optbinning/` (an entire separate project), `create_coolercontrol_udev_rules.sh`,
-two root-owned `.csm_setup_*` files, and a stale `build/`. Removing them is agreed
-**(pending)** — ask before each deletion. Until then: never read, edit, search or
-commit them, and never stage the root wholesale.
+The root was cleaned on 2026-08-22. `optbinning/` (a separate project, 276
+unversioned files), `create_coolercontrol_udev_rules.sh` and two root-owned
+`.csm_setup_*` files were **moved**, not deleted, to
+`../_moved_out_of_backtrader/`; the stale `build/` tree was deleted outright as
+regenerable output.
+
+**Keep the root clean.** Unrelated material does not live in this repository. If
+something unexplained appears there, move it out and say so — do not delete
+unversioned files, and do not `git add -A` from the root without reading
+`git status` first.
 
 ---
 

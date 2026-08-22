@@ -4,6 +4,7 @@
     `__btversion__` is now a 3-tuple. Code comparing against a 4-element
     `__btversion__` will break.
   - Add environment.yml: development environment on Python 3.13.
+  - Reformat backtrader/ with Black (88 columns). No behaviour change.
 
 1.9.78.123:
   - PR#479 Fix errors for simulated orders
