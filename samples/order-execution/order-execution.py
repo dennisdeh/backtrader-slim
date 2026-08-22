@@ -187,7 +187,6 @@ def getdata(args):
 
     dataformat = dict(
         bt=btfeeds.BacktraderCSVData,
-        visualchart=btfeeds.VChartCSVData,
         sierrachart=btfeeds.SierraChartCSVData,
         yahoo=btfeeds.YahooFinanceCSVData,
         yahoo_unreversed=btfeeds.YahooFinanceCSVData

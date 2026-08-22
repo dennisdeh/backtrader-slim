@@ -1,42 +1,11 @@
 #!/usr/bin/env python
 # -*- coding: utf-8; py-indent-offset:4 -*-
 ###############################################################################
-#
-# Copyright (C) 2015-2023 Daniel Rodriguez
-#
-# This program is free software: you can redistribute it and/or modify
-# it under the terms of the GNU General Public License as published by
-# the Free Software Foundation, either version 3 of the License, or
-# (at your option) any later version.
-#
-# This program is distributed in the hope that it will be useful,
-# but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-# GNU General Public License for more details.
-#
-# You should have received a copy of the GNU General Public License
-# along with this program.  If not, see <http://www.gnu.org/licenses/>.
-#
-###############################################################################
-from __future__ import absolute_import, division, print_function, unicode_literals
 
 # The modules below should/must define __all__ with the objects wishes
 # or prepend an "_" (underscore) to private classes/variables
-
-try:
-    from .ibstore import IBStore
-except ImportError:
-    pass  # The user may not have ibpy installed
-
-try:
-    from .vcstore import VCStore
-except ImportError:
-    pass  # The user may not have a module installed
-
-try:
-    from .oandastore import OandaStore
-except ImportError:
-    pass  # The user may not have a module installed
-
-
-from .vchartfile import VChartFile
+#
+# There are no live stores in this fork: the Interactive Brokers, VisualChart
+# and Oanda stores were removed in 2.0.0 because they depended on abandoned
+# packages (IbPy, comtypes, oandapy). The package is kept so that third-party
+# stores can still register themselves against backtrader.stores.

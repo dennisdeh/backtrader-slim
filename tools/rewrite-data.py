@@ -29,16 +29,11 @@ import sys
 
 
 import backtrader as bt
-from backtrader.utils.py3 import bytes
 
 
 DATAFORMATS = dict(
     btcsv=bt.feeds.BacktraderCSVData,
-    vchartcsv=bt.feeds.VChartCSVData,
-    vchart=bt.feeds.VChartData,
-    vcdata=bt.feeds.VCData,
-    vcfile=bt.feeds.VChartFile,
-    ibdata=bt.feeds.IBData,
+    csvgeneric=bt.feeds.GenericCSVData,
     sierracsv=bt.feeds.SierraChartCSVData,
     mt4csv=bt.feeds.MT4CSVData,
     yahoocsv=bt.feeds.YahooFinanceCSVData,
