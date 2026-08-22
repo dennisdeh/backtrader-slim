@@ -22,7 +22,7 @@ the change advances one of those three goals, and any API break is recorded.
 
 - **Primary language / runtime:** Python **3.13** (floor — see *Environment*)
 - **Entry point:** there is none for the library. The command that exercises the
-  whole thing is `cd tests && python -m pytest -q`.
+  whole thing is `pytest`, run from the repository root.
 - **Central concept:** **lines objects built by metaclasses.** Every Indicator,
   Strategy, Data feed and Analyzer is a `LineSeries` whose class-level `lines`,
   `params`, `alias` and `plotinfo` declarations are turned into real machinery at
@@ -40,12 +40,12 @@ conda activate backtrader
   `conda env create -f environment.yml`. The personal env
   `/home/deh/miniforge3/envs/inv313` also carries an editable install of this
   repo — it is *not* the project env; do not run the suite there or document it.
-- Install the package itself editable from the repo root: `pip install -e .`
-  (the README currently says `pip install -e`, missing the dot — fix it when you
-  next touch the README).
+- Install editable from the repo root: `pip install -e ".[dev]"`. The engine has
+  **no runtime dependencies**; everything optional is an extra declared in
+  `pyproject.toml` (`plotting`, `pandas`, `online`, `calendars`, `talib`, `dev`).
 - **Python 3.13 is the floor.** Do not write code that must also run on an older
   interpreter, and delete compatibility shims on sight rather than preserving them.
-- A fresh clone needs exactly two things: the conda env, and `pip install -e .`.
+- A fresh clone needs exactly two things: the conda env, and `pip install -e ".[dev]"`.
   Test fixtures live in `datas/` and are tracked, so the suite needs **no
   network, no credentials, no services and no secrets**. If a change introduces a
   requirement for any of those, that is a design problem in this project, not a
@@ -88,13 +88,12 @@ The non-obvious ones — where a reasonable reader guesses wrong:
 
 Standing authorization, matching the README's stated aims:
 
-- **Mechanical modernization.** Delete `from __future__` imports (169 files as of
-  2026-08-22), py2 shims and `utils.py3` usage (61 files), fix deprecated stdlib
-  calls (`datetime.utcnow`, invalid escape sequences), modernize syntax to 3.13.
-- **Delete dead integrations.** Interactive Brokers, VisualChart and Oanda
-  stores/brokers/feeds, the pyfolio analyzer, blaze and quandl feeds. A removal is
-  finished only when **nothing in the tree references it** — including
-  `__init__.py` exports, `btrun`, `samples/` and the README. Grep the whole tree.
+- **Mechanical modernization.** The Python 2 layer is gone as of 2.0.0
+  (2026-08-22); keep it that way. Fix deprecated stdlib calls on sight.
+- **Delete dead integrations.** The known ones are gone (see
+  `reports/DECISIONS.md`). A removal is finished only when **nothing in the tree
+  references it** — including `__init__.py` exports, `btrun`, `samples/`, the
+  README and `reports/`. Grep the whole tree.
 - **Refactor internals** of the metaclass core and indicator bases for clarity or
   speed.
 
@@ -124,10 +123,12 @@ And what bounds it:
 
 ## Testing  **[core]**
 
-- `cd tests && python -m pytest -q` — **in the foreground, with a bounded
+- `pytest` from the repository root — **in the foreground, with a bounded
   timeout.** Do not background the runner or spawn polling loops.
-- **82 tests, ~55 s** (2026-08-22, Python 3.13). **Report exact pass/fail counts.**
-  "Tests pass" without numbers is not a report.
+- **254 tests, ~51 s** (2026-08-22, Python 3.13). `pytest --cov` adds coverage
+  and takes ~4 min; coverage is 73% of statements, 69% counting branches.
+  **Report exact pass/fail counts.** "Tests pass" without numbers is not a
+  report.
 - The suite is offline and credential-free, and must stay that way.
 - If you narrow a run to one module, **say so explicitly** — a silently narrowed
   run reads as a full one.
@@ -147,11 +148,12 @@ And what bounds it:
 - **Root-cause discipline:** when correcting an expectation or a literal, grep the
   *whole* tree for the same value before declaring it fixed — sibling test files
   duplicate expectations (`rg -n "<value>" tests/`).
-- `.travis.yml` is dead (Python 3.6–3.8, `nosetests`) and **no CI runs anywhere**.
-  Do not trust it, and do not "fix" it unless asked.
-- Known noise, not failure: the suite emits ~740k warnings, dominated by
-  `datetime.utcnow()` deprecation in `cerebro.py` and invalid escape sequences in
-  docstrings. Reducing them is welcome work; their presence is not a red run.
+- **No CI runs anywhere.** `.travis.yml` was deleted in 2.0.0. The local suite
+  is the only gate; run it.
+- **The suite is warning-free and must stay that way.** `filterwarnings` in
+  `pyproject.toml` turns backtrader's own `DeprecationWarning`s and any
+  `SyntaxWarning` into errors, so a new warning fails the run rather than
+  joining a pile of 740k the way it used to.
 
 ## Debugging  **[core]**
 
@@ -191,47 +193,52 @@ And what bounds it:
 
 ## Documentation  **[core]**
 
-Three files at the repo root, plus `changelog.txt`. There is deliberately **no
-`reports/` tree, no per-module `docs/`, and no docs-check gate** — this is a
-library, and the code plus the changelog carry most of the record.
+`reports/` holds documentation that **aggregates across modules** - a small,
+fixed set of files, each answering exactly one standing question. Point-in-time
+records go in `reports/sessions/`.
 
 | the fact | the file |
 |---|---|
-| the code does something other than what it should | `OPEN_ITEMS.md` |
-| the code is correct and could be better | `IMPROVEMENT_SUGGESTIONS.md` |
-| examined, found correct, not to be re-raised | `DECISIONS.md` |
-| what changed, and every API break | `changelog.txt` |
+| the code does something other than what it should | `reports/OPEN_ITEMS.md` |
+| the code is correct and could be better | `reports/IMPROVEMENT_SUGGESTIONS.md` |
+| examined, found correct, not to be re-raised | `reports/DECISIONS.md` |
+| what is tested, how it is selected, what it costs | `reports/TESTING_SUITE.md` |
+| which part owns what, and what flows between them | `reports/ARCHITECTURE.md` |
+| what happened in one piece of work | `reports/sessions/YYYY-MM-DD_<slug>.md` |
+| what changed in a release, and every API break | `changelog.txt` |
 
-**(pending — the three `.md` files do not exist yet; create one the first time
-there is something to put in it, not before.)**
-
+- **Do not add a new file to `reports/` without asking.** That is how a reports
+  folder reaches 77 files. Update the existing one.
 - `OPEN_ITEMS` vs `IMPROVEMENT_SUGGESTIONS` is *"is something wrong?"*, not *"is
   something worth doing?"*. A finding that turns out to be by design moves to
   `DECISIONS.md` **with its reasoning**, so the next session does not reopen it.
+- **A new session report adds its own row to `reports/README.md`** in the same
+  commit, using the report's own title as the row text.
+- **Every document carries its vintage**: `*Last updated: YYYY-MM-DD*`,
+  refreshed when **its** content changes. Session reports are exempt - they are
+  dated by filename.
 - **End a session by filing what is left.** A summary in the chat is not filing.
 - **Update the existing file; do not create a parallel one.** State a fact once.
-- **Anchor to symbol names, never line numbers** — in code comments too. Every
-  `file.py:NNN` in a real repository was stale when audited.
-- **Date every measurement.** "measured 2026-08-22: 82 tests, 54.5 s" stays
+- **Anchor to symbol names, never line numbers** - in code comments too.
+- **Date every measurement.** "2026-08-22: 254 passed, 69% coverage" stays
   checkable; a bare number does not.
 - **Never write branch or merge state as present tense.** Give the date instead.
-- Search these files before starting an investigation from scratch — then check
-  their vintage before trusting them.
+- **Search `reports/` before starting an investigation** - then check its
+  vintage before trusting it.
 
 ### Where prose lives: docs, not code comments
 
-**A code comment says *what* and points; the `.md` files say *why*, with the
+**A code comment says *what* and points; `reports/` says *why*, with the
 evidence.** Measurements, dated incidents, upstream contracts and the reasoning
-behind a constant belong in the docs.
+behind a constant belong in the reports.
 
 - **Keep in the code:** what the value is, the one-sentence trap, the pointer.
-- **Move to docs:** the measurement and its date, the incident, what it cost.
-- **Never delete a comment that records a defect or a measurement** — relocating
-  is the only acceptable way to shorten it. A fact with no home is a regression
-  waiting to be re-introduced.
-- **Do not number steps** (`# 0.1: ...`) — the numbers drift. **Do not restate the
-  next line.** Note that this codebase inherits upstream's habit of long
-  explanatory docstrings; leave them where they are correct.
+- **Move to reports:** the measurement and its date, the incident, what it cost.
+- **Never delete a comment that records a defect or a measurement** - relocating
+  is the only acceptable way to shorten it.
+- **Do not number steps** (`# 0.1: ...`) - the numbers drift. **Do not restate
+  the next line.** This codebase inherits upstream's long explanatory
+  docstrings; leave them where they are correct.
 
 ## Housekeeping  **[situational]**
 

@@ -1,8 +1,57 @@
 2.0.0:
-  - Version scheme change: adopt plain semantic versioning X.Y.Z. The upstream
+  API BREAKS
+  - Python 3.13 is now the minimum. Support for every earlier interpreter is
+    removed along with the Python 2 compatibility layer.
+  - backtrader.utils.py3 is deleted. with_metaclass, string_types,
+    integer_types, MAXINT, iteritems, itervalues and the urllib/queue aliases
+    are gone; use the Python 3 equivalents. bt.with_metaclass no longer exists
+    - use `class X(Base, metaclass=Meta)`.
+  - Removed integrations, each depending on an abandoned or unavailable
+    package: Interactive Brokers (IBStore/IBBroker/IBData), VisualChart
+    (VCStore/VCBroker/VCData/VChartFile/VChartData/VChartCSVData), Oanda
+    (OandaStore/OandaBroker/OandaData), the pyfolio analyzer, and the blaze,
+    InfluxDB and Quandl data feeds. backtrader.stores no longer ships any
+    store implementation.
+  - Version scheme change: plain semantic versioning X.Y.Z. The upstream
     fourth digit, which counted the built-in indicators, is retired and
-    `__btversion__` is now a 3-tuple. Code comparing against a 4-element
-    `__btversion__` will break.
+    __btversion__ is now a 3-tuple. Code comparing against a 4-element
+    __btversion__ will break.
+  - Names that leaked into public namespaces through star imports are gone:
+    bt.feeds.ProxyHandler, bt.feeds.urlopen, bt.feeds.build_opener,
+    bt.feeds.install_opener and bt.observers.Trade among them. Import them
+    from their real home.
+
+  FIXES
+  - tzparse() raised AttributeError for any timezone *name* when pytz was not
+    installed, which is the default for this fork. Timezones now resolve
+    through the standard library's zoneinfo.
+  - AutoDict._close() never closed the dict: __setattr__ had its underscore
+    branch disabled, so the flag was stored as an entry named '_closed' and
+    the dict stayed writable.
+  - TimeFrame.getname(tframe) raised TypeError with its own default
+    compression=None.
+  - filters.CalendarDays raised TypeError with its documented default
+    fill_price=None ("use the last known closing price").
+  - datetime.utcnow() (deprecated) replaced with timezone-aware calls;
+    resamplerfilter keeps naive-UTC semantics because date2num() treats aware
+    datetimes differently.
+  - Two cerebro docstrings raised SyntaxWarning on every compile. A full test
+    run went from 739720 warnings to none.
+
+  PACKAGING
+  - PEP 621 pyproject.toml replaces setup.py. requires-python >=3.13, SPDX
+    license expression, version read dynamically from backtrader/version.py.
+  - The package declares NO runtime dependencies. Optional features are
+    extras: plotting, pandas (>=2.2), online, calendars, talib, dev.
+  - Removed setup.py, pypi.sh, .travis.yml, tools/bt-run.py and
+    .github/FUNDING.yml.
+
+  OTHER
+  - Test suite: 82 -> 254 tests, 43% statement coverage -> 69% with branch
+    coverage. tests/conftest.py holds shared fixtures; `pytest` now runs from
+    the repository root.
+  - Documentation: README rewritten; reports/ added (ARCHITECTURE, DECISIONS,
+    OPEN_ITEMS, IMPROVEMENT_SUGGESTIONS, TESTING_SUITE, sessions/).
   - Add environment.yml: development environment on Python 3.13.
   - Reformat backtrader/ with Black (88 columns). No behaviour change.
 
