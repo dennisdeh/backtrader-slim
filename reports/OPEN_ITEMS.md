@@ -8,6 +8,77 @@ move out of this file; things that turn out to be deliberate move to
 
 ## Open
 
+### `DataFilter` delivers every bar twice when preloading
+
+*Found 2026-08-23.* `bt.filters.DataFilter(dataname=feed, funcfilter=...)`
+returns 510 bars for the 255-bar 2006 daily fixture, each date appearing
+exactly twice. With `preload=False` it returns the correct 255.
+
+`DataFilter.preload()` starts and preloads the wrapped feed, rewinds it with
+`home()`, and then calls `super().preload()`, which walks it again through
+`_load()`. One of the two passes is redundant, but which one is meant to win
+is a design question, not an obvious edit.
+
+Pinned by `test_data_filter_under_preload_does_not_duplicate_bars`, a strict
+`xfail`, so a fix reports as an unexpected pass rather than going unnoticed.
+
+*Why it is not fixed here:* nothing in the tree used the class at all until
+2026-08-23, so there is no established behaviour to preserve, and picking a
+pass to drop needs a decision about what `preload` means for a wrapping feed.
+
+### `DataFiller` reads the numeric `sessionend` where it needs the time
+
+*Found 2026-08-23.* `DataFiller._load()` calls
+`datetime.combine(dtime_prev.date(), self.p.dataname.sessionend)` and raises
+`TypeError: combine() argument 2 must be datetime.time, not float`.
+
+On a started feed the two names differ: `p.sessionend` is the
+`datetime.time(23, 59, 59, 999990)` the user configured, while `sessionend` is
+the float date `_start_finish()` computed from it. The filler wants the former.
+
+Pinned by `test_data_filler_inserts_the_missing_minutes`, a strict `xfail`.
+
+*Why it is not fixed here:* the one-word change is obvious, but the class has
+never run, so what it should produce is unverified — it needs a golden case
+built by hand before its output can be trusted.
+
+### `Position.set` reports nothing opened when opening from flat
+
+*Found 2026-08-23.* Every branch of `Position.set` reports what the new size
+opened, except the one taken when the position is currently flat, which reads
+`self.upopened = self.size` — the *old* size, always 0 there — where its
+siblings say `size`. `Position.update` reports `opened == size` for the same
+transition, so the two disagree.
+
+Inert today: nothing outside `position.py` reads `upopened` or `upclosed`, and
+`set` is only ever called from `Position.__init__`. Reachable through the
+public `Position` API.
+
+Pinned by `test_setting_from_flat_reports_nothing_opened`, which asserts the
+current behaviour so that correcting it is a deliberate act with a changelog
+entry.
+
+### Two `Vortex` indicators exist, and the exported one is not the maintained one
+
+*Found 2026-08-23.* `backtrader/indicators/vortex.py` and
+`backtrader/indicators/contrib/vortex.py` define the same indicator with
+identical logic. `bt.indicators.Vortex` resolves to the **contrib** one, which
+`indicators/contrib/__init__.py` installs explicitly; the top-level module is
+imported by nothing, which is why it reports 0% coverage while
+`tests/test_ind_vortex.py` passes.
+
+The two differ only in formatting: the Black sweep of 2026-08-22 reached the
+top-level copy and skipped the contrib one, because `extend-exclude` matches
+any path containing `/contrib/`.
+
+*Impact:* `import backtrader.indicators.vortex` re-registers `Vortex` in
+`MetaIndicator._indcol`, so an innocuous-looking import silently swaps which
+class `btind.Vortex` names.
+
+*Why it is not fixed here:* deleting the duplicate is a one-line change, but
+which copy should survive — and whether `indicators/contrib/` should keep its
+Black exemption — is a layout decision.
+
 ### PandasData and the CSV feeds stamp the same bar differently
 
 *Found 2026-08-22.* The CSV feeds stamp a daily bar at the session end
@@ -41,6 +112,58 @@ them as undefined and cannot see genuine mistakes in those files. `ols.py`,
 
 *Impact:* the static check that caught a real break during the Python 2 sweep
 is blind in exactly those modules.
+
+## Fixed after 2.0.1
+
+### Concurrent cerebros clobbered each other's object cache
+
+*Found and fixed 2026-08-23.* The cache behind `objcache` lived on the
+`MetaIndicator` and `MetaLineActions` metaclasses — process-wide — and
+`cerebro.run()` clears it and switches it on or off on every call. Two cerebros
+running in different threads therefore reached into each other: a run declaring
+`objcache=False`, executing alongside one using `objcache=True`, silently
+received the other's cached indicator instances and built two indicators where
+it had declared three.
+
+The storage is thread-local now, and the logic both metaclasses had
+copy-pasted is one class, `metabase.ObjectCache`.
+`tests/test_concurrency.py` pins the interleaving that reproduces it rather
+than leaving it to chance, and was demonstrated red against the unfixed tree.
+
+### Optimization would have broken outright on Python 3.14
+
+*Found and fixed 2026-08-23.* Python 3.14 removes pickle support from
+`itertools`, and optimization pickles the cerebro to its workers. Four places
+held an `itertools` object on something that gets pickled: `Cerebro._dataid`,
+`Cerebro.stcount`, `Strategy._alnames` and `WriterFile._len`. All are plain
+ints now.
+
+`Cerebro.optstrategy` also stored its parameter combinations as a live
+`itertools.product` iterator; it stores a list. That fixed a second defect
+alongside the pickling one — the iterator was single-use, so a second `run()`
+on an optimizing cerebro saw it exhausted.
+
+The classifiers in `pyproject.toml` already advertise Python 3.14.
+
+### `DataFilter` and `DataFiller` could not load a single bar
+
+*Found and fixed 2026-08-23.* Both wrap another feed rather than filtering one
+in place, and both raised `AttributeError: _tzinput` on the first bar. Nothing
+hands the inner feed to cerebro, so nothing gave it an environment; and they
+called the wrapped feed's `start()`, where only `_start()` reaches
+`_start_finish()` — the half that sets `_tzinput` and the trading calendar.
+
+Both now start the inner feed through a `_startinner()` helper. Two further
+defects sit behind that one and are listed under *Open* above.
+
+Nothing in the tree exercised either class, samples included; the
+`data-filler` sample names them in its `--help` description but uses
+`SessionFilter`/`SessionFiller`, which are different classes in `session.py`.
+
+### `strategy.py` carried a corrupt shebang
+
+*Found and fixed 2026-08-23.* `#!/usr/bin389/env python`. Harmless, since the
+module is imported rather than executed, and the only such line in the tree.
 
 ## Fixed after 2.0.0
 

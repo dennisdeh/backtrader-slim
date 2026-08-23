@@ -1,0 +1,178 @@
+# 2026-08-23 — Timing the engine, and making concurrency correct
+
+A scan of the whole tree for where time goes, followed by the concurrency work
+the scan turned up. Everything measured here is reproducible with
+`python tools/benchmark.py`, which this session added.
+
+Environment: Python 3.13.15, conda env `backtrader`, 64 cores.
+
+---
+
+## What the scan found
+
+### The engine floor and the two execution paths
+
+Over `datas/yhoo-1996-2014.txt` (4713 daily bars), minimum of five runs:
+
+| case | ms | µs/bar |
+|---|---|---|
+| feed: load + preload only | 61 | 13.0 |
+| empty strategy: runonce + preload | 163 | 34.6 |
+| empty strategy: next mode | 232 | 49.1 |
+| 1 indicator: runonce + preload | 179 | 37.9 |
+| 1 indicator: next mode | 283 | 60.0 |
+| 10 indicators: runonce + preload | 450 | 95.6 |
+| **10 indicators: next mode** | **2241** | **475.5** |
+| 10 indicators: exactbars=-2 | 2189 | 464.5 |
+
+Reading the feed is 61 ms — over a third of an otherwise empty vectorised run.
+Everything above that is engine overhead, and the gap between the two
+execution paths is the headline: **`runonce` is about 5x faster than `next`
+under real indicator load.** One SMA costs 14 ms vectorised and 104 ms bar by
+bar.
+
+### `len()` is the hottest thing in the library
+
+cProfile puts `builtins.len` at the top in both modes — 632k calls under
+`runonce`, 2.66M under `next`, where it accounts for 0.85 s of 6.7 s. The
+cause is a three-deep proxy chain: `LineSeries.__len__` → `Lines.__len__` →
+`LineBuffer.__len__` → `self.lencount`, three Python frames for one integer.
+
+Flattening it measured **8.8% faster in `runonce` and 6.4% in `next`** (CPU
+time, both variants alternated inside one process), suite green, lengths and
+indicator values verified identical. Not applied — see
+`IMPROVEMENT_SUGGESTIONS.md` for why it wants its own commit.
+
+### One indicator dominates the rest
+
+Surveyed all 293 exported indicator names (many are aliases), net of the
+165 ms engine floor. `HurstExponent` costs **1816 ms**, more than the next 25
+indicators combined, and is the only one that gains nothing from `runonce`
+(ratio 1.1) because it overrides `next()` but not `once()`. Behind it, the
+`DirectionalMovement` family and `KST` run ~10x slower in `next` mode.
+
+Replacing Hurst's per-bar `numpy.polyfit` with the closed-form degree-1 slope
+measured 12% faster with identical results — worth having, but it shows the
+real cost is the 18 small numpy calls per bar, not the fit.
+
+### Import cost
+
+`import backtrader` is ~126 ms. Most of it is metaclass work at class-creation
+time and inherent. The avoidable parts are `multiprocessing` (5.6 ms) and the
+stdlib networking `feeds/yahoo.py` pulls in for an online feed most users never
+touch.
+
+---
+
+## What the scan turned into
+
+The timing work kept running into the same theme — process-wide state — so the
+session followed it.
+
+### Concurrent cerebros corrupted each other
+
+The object cache behind `objcache` lived on the `MetaIndicator` and
+`MetaLineActions` metaclasses, and `cerebro.run()` clears it and toggles it on
+every call. Two cerebros in different threads clobbered each other: a run
+declaring `objcache=False`, running alongside one using `objcache=True`,
+silently received the other's indicator instances and built two indicators
+where it had declared three.
+
+`tests/test_concurrency.py` reproduces this deterministically rather than by
+luck — it pins the interleaving with two events, so the uncached run is
+blocked inside its strategy's `__init__` at the moment the cached run's
+prologue flips the global flag. Against the unfixed tree:
+
+```
+uncached run (objcache=False) -> (4117.964, 2)   expected (4117.964, 3)
+RESULT: FAIL - the uncached run was infected
+```
+
+Fixed by making the storage thread-local, in one shared `metabase.ObjectCache`
+instead of the copy-pasted logic in both metaclasses.
+
+### Optimization would have broken on Python 3.14
+
+Python 3.14 removes pickle support from `itertools`, and optimization pickles
+the cerebro to its workers. Four attributes held one — `Cerebro._dataid`,
+`Cerebro.stcount`, `Strategy._alnames`, `WriterFile._len` — and
+`Cerebro.optstrategy` stored its parameter grid as a live `itertools.product`.
+All are plain ints and a list now. `pyproject.toml` already advertises 3.14.
+
+Materializing the grid fixed a second defect for free: the iterator was
+single-use, so a second `run()` on an optimizing cerebro saw it exhausted.
+
+### `multiprocessing.Pool` → `concurrent.futures`
+
+Requested during the session. `executor` (default `'process'`) picks the pool.
+`'thread'` gives each worker a private copy of the cerebro, through the same
+`__getstate__` contract the process pool pickles through, so both return
+identical results — verified across `maxcpus=1`, `maxcpus=2` process,
+`maxcpus=2` thread and `maxcpus=None`.
+
+**`'thread'` will not speed up optimization on a GIL-carrying interpreter.**
+The work is CPU-bound Python. It is there for free-threaded builds and for
+debugging in one address space, and the docstring says so rather than letting
+someone discover it by benchmarking.
+
+The pool is closed through a context manager; the old code called
+`pool.close()` and never joined.
+
+### Two data wrapper classes had never run
+
+`DataFilter` and `DataFiller` raised `AttributeError: _tzinput` on their first
+bar. Nothing hands the inner feed to cerebro, so nothing gave it an
+environment, and they called the wrapped feed's `start()` where only `_start()`
+reaches `_start_finish()`. Nothing in the tree exercised either class — the
+`data-filler` sample names them in its `--help` text but uses the unrelated
+`SessionFilter`/`SessionFiller`.
+
+Both start the inner feed properly now. Two defects behind that are recorded in
+`OPEN_ITEMS.md` and pinned by strict `xfail` rather than fixed: `DataFilter`
+double-delivers under preload, and `DataFiller` reads the numeric `sessionend`
+where it needs the `datetime.time`.
+
+---
+
+## Tests and coverage
+
+259 → **333 passed**, 1 skipped, 2 xfailed, 48.1 s.
+Coverage 73% → **75% of statements**, 69% → **71%** counting branches.
+
+| file | added | subject |
+|---|---|---|
+| `test_concurrency.py` | 21 (new) | executors, `ObjectCache`, concurrent cerebros |
+| `test_position.py` | +23 | every branch of `set`, the short side of `update`, clone/fix |
+| `test_trade.py` | +20 | lifecycle both directions, `TradeHistory`, pickle round-trip |
+| `test_filters_sizers.py` | +12 | bar splitters and the two data wrappers |
+
+New tests went into the existing files rather than parallel ones. The
+concurrency tests are new because nothing covered the subject.
+
+---
+
+## Also found, not acted on
+
+- **Two `Vortex` classes.** `indicators/vortex.py` and
+  `indicators/contrib/vortex.py` are identical implementations;
+  `bt.indicators.Vortex` is the contrib one, and the top-level module is
+  imported by nothing — which is why it reads 0% coverage while its test
+  passes. Importing it silently re-registers `Vortex`.
+- **`Position.set` reports nothing opened from flat**, where every sibling
+  branch and `Position.update` report the size. Inert — nothing reads
+  `upopened` outside `position.py`.
+- **A corrupt shebang** in `strategy.py` (`#!/usr/bin389/env python`), fixed.
+- **The conda env is `backtrader`, not `slim-backtrader`.** `environment.yml`
+  declared the distribution name, so `conda env create` built an env none of
+  the documented `conda activate` lines matched. Fixed in four files.
+- **Python 2 shims survive** in `cerebro.py` and `writer.py`
+  (`collectionsAbc`, with a Russian comment) and in
+  `test_strategy_optimized.py` (`time.clock` fallback). CLAUDE.md authorizes
+  deleting these on sight; they were left for a separate mechanical commit so
+  as not to bury the behaviour changes.
+
+## Where the suite's time goes
+
+`test_strategy_optimized.py::test_run` is **20.4 s of the 48 s suite** — 43%,
+in one test. It runs a 21-combination optimization single-threaded. Nothing
+was changed about it, but it is the obvious target if suite time ever matters.
