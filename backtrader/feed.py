@@ -138,6 +138,7 @@ class AbstractDataBase(dataseries.OHLCDateTime, metaclass=MetaAbstractDataBase):
         ("tzinput", None),
         ("qcheck", 0.0),  # timeout in seconds (float) to check for events
         ("calendar", None),
+        ("checkorder", True),  # reject a source that goes back in time
     )
 
     (
@@ -215,6 +216,19 @@ class AbstractDataBase(dataseries.OHLCDateTime, metaclass=MetaAbstractDataBase):
             self._calendar = PandasMarketCalendar(calendar=cal)
 
         self._started = True
+
+    def _unordered(self, dt):
+        """A bar arrived older than the one before it."""
+        raise ValueError(
+            "{}: bar {} is dated {}, before the previous bar's {}. The feed "
+            "must deliver bars in time order; pass checkorder=False to accept "
+            "the source as it is.".format(
+                self._dataname,
+                len(self),
+                num2date(dt),
+                num2date(self._lastdtnum),
+            )
+        )
 
     def _start(self):
         self.start()
@@ -320,6 +334,13 @@ class AbstractDataBase(dataseries.OHLCDateTime, metaclass=MetaAbstractDataBase):
         self._barstack = collections.deque()
         self._barstash = collections.deque()
         self._laststatus = self.CONNECTED
+        # Latest datetime the source has delivered, for the order check in
+        # load(). It belongs here rather than in _start_finish(), which runs
+        # only once: one data object is routinely replayed through several
+        # cerebros - the golden-value tests run every case across the whole
+        # runonce/preload/exactbars matrix on one feed - and each run has to
+        # start from the beginning of time, not from where the last one ended.
+        self._lastdtnum = float("-inf")
 
     def stop(self):
         pass
@@ -527,6 +548,21 @@ class AbstractDataBase(dataseries.OHLCDateTime, metaclass=MetaAbstractDataBase):
                 # discard loaded bar and break out
                 self.backwards(force=True)
                 break
+
+            # The source must not go back in time. Unordered input is not a
+            # detail: every indicator, the broker and every analyzer would go
+            # on computing against a timeline that never existed, and say
+            # nothing. Equal stamps are allowed - tick data routinely carries
+            # several ticks within the same second.
+            #
+            # This sees the raw source stream only. Bars a filter produced come
+            # back through _fromstack() above and return before reaching here,
+            # so resampling and replay, which move the clock about on purpose,
+            # are not affected.
+            if self.p.checkorder:
+                if dt < self._lastdtnum:
+                    self._unordered(dt)
+                self._lastdtnum = dt
 
             # Pass through filters
             retff = False

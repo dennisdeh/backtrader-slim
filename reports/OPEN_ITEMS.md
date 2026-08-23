@@ -8,39 +8,6 @@ move out of this file; things that turn out to be deliberate move to
 
 ## Open
 
-### Nothing checks that bars arrive in time order
-
-*Found 2026-08-23.* A feed whose rows run backwards, or that has one date out
-of place, or that repeats a timestamp, loads without a word. The engine treats
-whatever order it is given as chronological, so every indicator, the broker
-and every analyzer silently compute against a timeline that does not exist.
-
-Pinned by `TestUnorderedDataIsAcceptedSilently` in `tests/test_chaos.py`,
-which asserts the current behaviour.
-
-*Why it is not fixed here:* a monotonicity check is one comparison per bar in
-the hottest loop in the library, and it would reject feeds that legitimately
-deliver their own ordering - `reverse=True` sources, and the resampler and
-replayer, which move the clock about on purpose. It needs to be decided where
-the check belongs before it is written.
-
-### Nonsense order arguments are refused as margin failures
-
-*Found 2026-08-23.* `buy(size=-5)`, `buy(size=float('nan'))` and a limit order
-at a NaN price are all refused - correctly, nothing executes - but they are
-refused with `Order.Margin`, as if the account were short of cash. A negative
-size on a buy and a NaN price are invalid arguments, not funding problems, and
-a strategy that inspects the rejection reason is told the wrong thing.
-
-`buy(size=0)` returns `None` and places nothing, which is reasonable.
-
-Pinned by `TestNonsenseOrdersAreRejectedNotCrashed` in `tests/test_chaos.py`.
-
-*Why it is not fixed here:* changing a rejection reason changes what
-`notify_order` reports to every existing strategy, and validating sizes at
-submission would reject them earlier than the broker does today. It is a
-behaviour change that needs its own decision.
-
 ### `DataFilter` delivers every bar twice when preloading
 
 *Found 2026-08-23.* `bt.filters.DataFilter(dataname=feed, funcfilter=...)`
@@ -147,6 +114,51 @@ them as undefined and cannot see genuine mistakes in those files. `ols.py`,
 is blind in exactly those modules.
 
 ## Fixed after 2.0.1
+
+### A feed could go back in time and nothing said anything
+
+*Found 2026-08-23, fixed the same day.* A source whose rows ran backwards, or
+had one date out of place, loaded without a word, and every indicator, the
+broker and every analyzer then computed against a timeline that never existed.
+
+`AbstractDataBase.load()` now refuses a bar older than the one before it,
+naming both dates and the bar number. Equal stamps are still accepted - tick
+data routinely carries several ticks within the same second. The new
+`checkorder` parameter (default `True`) turns it off for a source that
+delivers its own ordering on purpose.
+
+The check sees the raw source stream only: bars a filter produced come back
+through `_fromstack()` and return before reaching it, so resampling and replay,
+which move the clock about deliberately, are unaffected. `Chainer` already
+enforced the same rule for itself, and `reverse=True` feeds reverse the file at
+`start()`, so both were already in order.
+
+Cost, measured 2026-08-23 by alternating both settings inside one process:
+**+2.4%** of CPU on a bare feed load, **+0.7%** with ten indicators attached,
+within noise in `next` mode.
+
+### A NaN size or price was refused as a margin call
+
+*Found 2026-08-23, fixed the same day.* `buy(size=float('nan'))` and a limit
+order at a NaN price reached the broker intact, and the cash arithmetic turned
+them into `Order.Margin` - NaN compares false against everything, so the
+broker's `cash >= 0.0` test failed. The strategy was told the account was short
+of money when it had in fact asked for something meaningless.
+
+`OrderBase.__init__` now raises `ValueError` for a size that is `None`, NaN,
+infinite or negative, and for a NaN or infinite `price`, `pricelimit`,
+`trailamount` or `trailpercent`. These are programming errors rather than
+market conditions, so they fail loudly instead of arriving as a notification
+the strategy would have to guess the meaning of. A genuine funding shortfall
+still reports `Order.Margin`.
+
+*Correction to the entry this replaces:* it also claimed `buy(size=-5)` was
+mislabelled. It is not. `Strategy.buy()` takes `abs(size)`, so that call buys
+5 - and the `Margin` seen when the finding was written was real, 5 units at
+~3600 against the default 10000 of cash. Size is a magnitude and the direction
+comes from `buy()`/`sell()`; only the direct `broker.buy(size=-5)` path, which
+bypasses that normalisation, is now refused.
+
 
 ### The Yahoo feed fabricated a volume for a row that had none
 

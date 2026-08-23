@@ -373,7 +373,44 @@ class OrderBase(metaclass=MetaParams):
 
         return "\n".join(tojoin)
 
+    @staticmethod
+    def _checkfinite(name, value):
+        """Reject a NaN or infinite order argument.
+
+        Left alone, these reach the broker as an order that cannot execute and
+        the cash arithmetic turns them into a margin rejection - which tells
+        the strategy the account was short of money, when what actually
+        happened is that it asked for something meaningless. NaN is especially
+        quiet about it: it compares false against everything, so the broker's
+        `cash >= 0.0` test fails and the order is refused for a reason that
+        never applied.
+        """
+        if value != value:
+            raise ValueError("order {} is NaN".format(name))
+        if value in (float("inf"), float("-inf")):
+            raise ValueError("order {} is infinite".format(name))
+
     def __init__(self):
+        # Checked before the sell-side negation further down, so this is the
+        # magnitude the caller actually asked for
+        size = self.p.size
+        if size is None:
+            raise ValueError(
+                "order size is None: pass a size, or let the sizer supply one "
+                "through the strategy's buy()/sell()"
+            )
+        self._checkfinite("size", size)
+        if size < 0:
+            raise ValueError(
+                "order size is negative ({}): size is a magnitude, and it is "
+                "buy() or sell() that decides the direction".format(size)
+            )
+
+        for name in ("price", "pricelimit", "trailamount", "trailpercent"):
+            value = getattr(self.p, name)
+            if value is not None:
+                self._checkfinite(name, value)
+
         self.ref = next(self.refbasis)
         self.broker = None
         self.info = AutoOrderedDict()

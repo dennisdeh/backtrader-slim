@@ -77,6 +77,30 @@ UNRELEASED
     missing attribute, where a subclass that had not set DataCls/BrokerCls
     used to get "'NoneType' object is not callable".
 
+  VALIDATION
+  - A data feed that goes back in time is refused. AbstractDataBase.load()
+    rejects a bar dated before the one preceding it, naming both dates and the
+    bar number. Unordered input used to load silently, leaving every
+    indicator, the broker and every analyzer computing against a timeline that
+    never existed. Equal stamps are still accepted - tick data routinely
+    carries several ticks within one second. New `checkorder` parameter
+    (default True) turns the check off for a source that delivers its own
+    ordering deliberately. The check sees the raw source stream only, so
+    resampling and replay are unaffected. Measured cost: +2.4% of CPU on a
+    bare feed load, +0.7% with ten indicators attached
+    (`python tools/benchmark.py`, 2026-08-23). API break: a feed that used to
+    load now raises ValueError unless checkorder=False.
+  - An impossible order argument is refused as one. OrderBase raises
+    ValueError for a size that is None, NaN, infinite or negative, and for a
+    NaN or infinite price, pricelimit, trailamount or trailpercent. These used
+    to reach the broker intact and be turned into Order.Margin by the cash
+    arithmetic - NaN compares false against everything, so `cash >= 0.0`
+    failed - telling the strategy the account was short of money when it had
+    asked for something meaningless. A genuine funding shortfall still reports
+    Order.Margin. Strategy.buy()/sell() still take abs(size), so a negative
+    size passed there is normalised as before; only the direct broker call is
+    refused. API break: these raise where they previously notified.
+
   MODERNIZATION
   - The last Python 2 shims are gone. cerebro.py and writer.py both carried
     a try/except around collections.abc; both call sites use
@@ -84,7 +108,7 @@ UNRELEASED
     back to time.clock, removed from Python in 3.8, on a bare except.
 
   TESTS
-  - 259 -> 407 tests, 47.9s -> 47.8s. Coverage 73% -> 76% of statements,
+  - 259 -> 416 tests, 47.9s -> 48.0s. Coverage 73% -> 76% of statements,
     69% -> 72% counting branches; store.py 33% -> 73%, feed.py 69% -> 73%.
     tests/test_concurrency.py and tests/test_chaos.py are new; the additions
     to test_position.py, test_trade.py and test_filters_sizers.py went into

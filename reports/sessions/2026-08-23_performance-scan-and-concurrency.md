@@ -180,24 +180,53 @@ contain no bare `except:`, and must never catch `BaseException`. CLAUDE.md
 prefers a check that can be run to a rule that has to be remembered, and both
 defects these guard against were real.
 
-### Pinned, not fixed
+### Two more, fixed after a second look
 
-- **Bars are never checked for time order.** A feed running backwards, or with
-  one date out of place, or repeating a timestamp, loads without a word; every
-  indicator, the broker and every analyzer then compute against a timeline that
-  does not exist. A monotonicity check is one comparison per bar in the hottest
-  loop in the library, and it would reject feeds that deliver their own
-  ordering on purpose — `reverse=True` sources, the resampler, the replayer.
-- **Nonsense order arguments are refused as margin failures.** `buy(size=-5)`,
-  a NaN size and a limit at a NaN price are all correctly refused, but with
-  `Order.Margin` — as if the account were short of cash. A strategy inspecting
-  the rejection reason is told the wrong thing.
+Both were filed as pinned-not-fixed first, then fixed on request.
+
+**A feed could go back in time and nothing said anything.** A source whose rows
+ran backwards, or had one date out of place, loaded without a word — and every
+indicator, the broker and every analyzer then computed against a timeline that
+never existed. `AbstractDataBase.load()` now refuses a bar older than the one
+before it, naming both dates. Equal stamps stay legal, because tick data
+routinely carries several ticks within one second, and the new `checkorder`
+parameter turns the check off for a source that orders itself.
+
+The worry that stopped it the first time was cost and false positives. Both
+turned out to be small: the check sees only the raw source stream, because
+filter-produced bars return through `_fromstack()` before reaching it, so
+resampling and replay are untouched; `Chainer` already enforced the same rule
+on itself and `reverse=True` reverses the file at `start()`. Measured cost is
+**+2.4%** of CPU on a bare feed load and **+0.7%** with ten indicators
+attached.
+
+One wrinkle was worth the trouble: the golden-value tests drive *one* feed
+object through the whole `runonce × preload × exactbars` matrix, so the last
+bar of one run is still remembered when the next begins. The reset belongs in
+`start()`, which runs every time, not in `_start_finish()`, which runs once.
+Putting it in the wrong one failed 84 tests, which is a good argument for
+having them.
+
+**A NaN size or price was refused as a margin call.** These reached the broker
+intact, and the cash arithmetic turned them into `Order.Margin` — NaN compares
+false against everything, so `cash >= 0.0` failed. The strategy was told the
+account was short of money when it had asked for something meaningless.
+`OrderBase` now raises `ValueError` for a size that is `None`, NaN, infinite or
+negative, and for a NaN or infinite price, pricelimit, trailamount or
+trailpercent. A genuine funding shortfall still reports `Order.Margin`.
+
+**A correction to the original finding:** it also claimed `buy(size=-5)` was
+mislabelled. It was not. `Strategy.buy()` takes `abs(size)`, so that call buys
+5 — and the `Margin` observed when the finding was written was entirely real,
+5 units at ~3600 against the default 10000 of cash. Size is a magnitude and the
+direction comes from `buy()`/`sell()`. Only the direct `broker.buy(size=-5)`
+path, which skips that normalisation, is refused now.
 
 ---
 
 ## Tests and coverage
 
-259 → **407 passed**, 1 skipped, 2 xfailed, 47.8 s.
+259 → **416 passed**, 1 skipped, 2 xfailed, 48.0 s.
 Coverage 73% → **76% of statements**, 69% → **72%** counting branches.
 `store.py` 33% → 73%, `feed.py` 69% → 73%.
 
@@ -210,7 +239,7 @@ error paths a line or two long — but it is where the defects were.
 | `test_position.py` | +23 | every branch of `set`, the short side of `update`, clone/fix |
 | `test_trade.py` | +20 | lifecycle both directions, `TradeHistory`, pickle round-trip |
 | `test_filters_sizers.py` | +12 | bar splitters and the two data wrappers |
-| `test_chaos.py` | 74 (new) | malformed input, raising callbacks, orders, `Store` |
+| `test_chaos.py` | 83 (new) | malformed input, raising callbacks, orders, ordering, `Store` |
 
 New tests went into the existing files rather than parallel ones. The
 concurrency tests are new because nothing covered the subject.

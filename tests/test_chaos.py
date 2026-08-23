@@ -466,12 +466,13 @@ class OptSkipOdd(bt.Strategy):
             raise bt.errors.StrategySkipError()
 
 
-class TestNonsenseOrdersAreRejectedNotCrashed:
-    """Absurd order arguments must be refused, never executed.
+class TestNonsenseOrdersAreRejectedAsNonsense:
+    """An impossible order argument is refused as one, not as a margin call.
 
-    These pin current behaviour. The broker refuses each of them, but through
-    a margin rejection rather than by saying the argument was invalid - see
-    reports/OPEN_ITEMS.md.
+    A NaN size or price used to reach the broker intact and be turned into
+    `Order.Margin` by the cash arithmetic - NaN compares false against
+    everything, so `cash >= 0.0` fails - telling the strategy the account was
+    short of money when it had asked for something meaningless.
     """
 
     def place(self, action):
@@ -498,23 +499,53 @@ class TestNonsenseOrdersAreRejectedNotCrashed:
         assert strat.result is None
         assert strat.statuses == []
 
-    def test_a_negative_size_buy_never_executes(self):
-        strat = self.place(lambda s: s.buy(size=-5))
-        assert "Completed" not in strat.statuses
+    def test_a_nan_size_is_refused_as_an_invalid_size(self):
+        with pytest.raises(ValueError, match="size is NaN"):
+            self.place(lambda s: s.buy(size=float("nan")))
 
-    def test_a_nan_size_never_executes(self):
-        strat = self.place(lambda s: s.buy(size=float("nan")))
-        assert "Completed" not in strat.statuses
+    def test_an_infinite_size_is_refused_as_an_invalid_size(self):
+        with pytest.raises(ValueError, match="size is infinite"):
+            self.place(lambda s: s.buy(size=float("inf")))
 
-    def test_an_unaffordable_order_is_margin_rejected(self):
+    def test_a_nan_limit_price_is_refused_as_an_invalid_price(self):
+        with pytest.raises(ValueError, match="price is NaN"):
+            self.place(
+                lambda s: s.buy(size=1, exectype=bt.Order.Limit, price=float("nan"))
+            )
+
+    def test_an_infinite_trailamount_is_refused(self):
+        with pytest.raises(ValueError, match="trailamount is infinite"):
+            self.place(
+                lambda s: s.buy(
+                    size=1, exectype=bt.Order.StopTrail, trailamount=float("inf")
+                )
+            )
+
+    def test_a_negative_size_reaching_the_broker_directly_is_refused(self):
+        # Strategy.buy() takes abs(size), so this is only reachable by calling
+        # the broker itself - where a negative size would build a nonsense order
+        with pytest.raises(ValueError, match="size is negative"):
+            self.place(
+                lambda s: s.broker.buy(s, s.data, size=-5, exectype=bt.Order.Market)
+            )
+
+    def test_a_sizeless_order_reaching_the_broker_directly_is_refused(self):
+        with pytest.raises(ValueError, match="size is None"):
+            self.place(
+                lambda s: s.broker.buy(s, s.data, size=None, exectype=bt.Order.Market)
+            )
+
+    def test_strategy_buy_treats_size_as_a_magnitude(self):
+        # documented behaviour: the direction comes from buy()/sell(), so a
+        # negative size is normalised rather than rejected
+        strat = self.place(lambda s: s.buy(size=-1))
+        assert strat.result.size == 1
+        assert "Completed" in strat.statuses
+
+    def test_an_unaffordable_order_is_still_a_margin_rejection(self):
+        # a genuine funding problem must keep saying so
         strat = self.place(lambda s: s.buy(size=10**18))
         assert "Margin" in strat.statuses
-
-    def test_a_limit_order_at_a_nan_price_never_executes(self):
-        strat = self.place(
-            lambda s: s.buy(size=1, exectype=bt.Order.Limit, price=float("nan"))
-        )
-        assert "Completed" not in strat.statuses
 
     def test_cancelling_nothing_does_not_raise(self):
         assert self.place(lambda s: s.cancel(None)).result is None
@@ -586,14 +617,15 @@ class TestArithmeticGuards:
         assert strat.myresult[0] == pytest.approx(10.0)  # no width, no crash
 
 
-class TestUnorderedDataIsAcceptedSilently:
-    """Pins a real gap: nothing checks that bars arrive in time order.
+class TestUnorderedDataIsRejected:
+    """A source that goes back in time is refused, not quietly believed.
 
-    See reports/OPEN_ITEMS.md. Asserted rather than fixed, because rejecting
-    it would break feeds that legitimately deliver their own ordering.
+    Unordered input is not a cosmetic problem: every indicator, the broker and
+    every analyzer would go on computing against a timeline that never existed,
+    and say nothing about it.
     """
 
-    def dated(self, tmp_path, *days):
+    def dated(self, tmp_path, *days, **feedkwargs):
         body = BT_HEADER + "".join(
             f"2006-01-{day:02d},10,11,9,10.5,100,0\n" for day in days
         )
@@ -606,19 +638,65 @@ class TestUnorderedDataIsAcceptedSilently:
                 seen.append(self.data.datetime.date(0).day)
 
         cerebro = bt.Cerebro(stdstats=False)
-        cerebro.adddata(bt.feeds.BacktraderCSVData(dataname=write(tmp_path, body)))
+        cerebro.adddata(
+            bt.feeds.BacktraderCSVData(dataname=write(tmp_path, body), **feedkwargs)
+        )
         cerebro.addstrategy(Recorder)
         cerebro.run()
         return seen
 
-    def test_dates_running_backwards_load_without_complaint(self, tmp_path):
-        assert self.dated(tmp_path, 4, 3, 2) == [4, 3, 2]
+    def test_bars_in_order_are_accepted(self, tmp_path):
+        assert self.dated(tmp_path, 2, 3, 4) == [2, 3, 4]
 
-    def test_one_date_out_of_place_loads_without_complaint(self, tmp_path):
-        assert self.dated(tmp_path, 2, 9, 3) == [2, 9, 3]
+    def test_dates_running_backwards_are_rejected(self, tmp_path):
+        with pytest.raises(ValueError, match="before the previous bar"):
+            self.dated(tmp_path, 4, 3, 2)
 
-    def test_duplicate_timestamps_load_without_complaint(self, tmp_path):
+    def test_one_date_out_of_place_is_rejected(self, tmp_path):
+        with pytest.raises(ValueError, match="before the previous bar"):
+            self.dated(tmp_path, 2, 9, 3)
+
+    def test_the_message_names_the_bar_and_both_dates(self, tmp_path):
+        with pytest.raises(ValueError) as excinfo:
+            self.dated(tmp_path, 2, 9, 3)
+        message = str(excinfo.value)
+        assert "2006-01-03" in message  # the offending bar
+        assert "2006-01-09" in message  # the one it should have followed
+        assert "checkorder=False" in message  # and the way out
+
+    def test_duplicate_timestamps_are_allowed(self, tmp_path):
+        # tick data routinely carries several ticks within the same second,
+        # so equal stamps must not be an error
         assert self.dated(tmp_path, 2, 2, 3) == [2, 2, 3]
+
+    def test_checkorder_false_accepts_the_source_as_it_is(self, tmp_path):
+        assert self.dated(tmp_path, 4, 3, 2, checkorder=False) == [4, 3, 2]
+
+    def test_a_feed_can_be_replayed_through_a_second_cerebro(self, tmp_path):
+        # the check resets per run: one data object driven twice must not see
+        # the first run's last bar when the second run starts
+        body = BT_HEADER + "".join(
+            f"2006-01-{day:02d},10,11,9,10.5,100,0\n" for day in (2, 3, 4)
+        )
+        data = bt.feeds.BacktraderCSVData(dataname=write(tmp_path, body))
+        for _ in range(2):
+            cerebro = bt.Cerebro(stdstats=False)
+            cerebro.adddata(data)
+            cerebro.addstrategy(bt.Strategy)
+            cerebro.run()
+
+    def test_the_tracked_tick_fixture_still_loads(self):
+        assert (
+            len(
+                bars_from(
+                    datafile("ticksample.csv"),
+                    feedcls=bt.feeds.GenericCSVData,
+                    dtformat="%Y-%m-%dT%H:%M:%S.%f",
+                    timeframe=bt.TimeFrame.Ticks,
+                )
+            )
+            > 0
+        )
 
 
 class TestNoBareExcepts:

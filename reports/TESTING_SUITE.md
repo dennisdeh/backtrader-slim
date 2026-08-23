@@ -8,7 +8,7 @@ What is tested, how it is selected, and what it costs.
 
 ```shell
 conda activate backtrader
-pytest                  # 407 tests, ~48 s
+pytest                  # 416 tests, ~48 s
 pytest --cov            # adds coverage, ~4 min
 pytest -m "not plotting"   # skip the two matplotlib rendering tests
 ```
@@ -36,7 +36,7 @@ and any `SyntaxWarning` into errors.
 | `test_concurrency.py` | 21 | the optimization executors, `ObjectCache`, concurrent cerebros |
 | `test_position.py` | 24 | size/price arithmetic, every branch of `set` and `update` |
 | `test_trade.py` | 21 | the trade lifecycle, both directions, `TradeHistory` |
-| `test_chaos.py` | 74 | malformed input, raising callbacks, nonsense orders, `Store` |
+| `test_chaos.py` | 83 | malformed input, raising callbacks, nonsense orders, `Store` |
 
 ## The golden-value contract
 
