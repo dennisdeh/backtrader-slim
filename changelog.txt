@@ -1,4 +1,4 @@
-UNRELEASED
+2.1.0: 2026-08-23
   API BREAKS
   Five, all deliberate; each is explained in the section named after it.
   - A malformed CSV row raises ValueError where a truncated one used to raise

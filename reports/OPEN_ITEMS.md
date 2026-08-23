@@ -11,7 +11,7 @@ move out of this file; things that turn out to be deliberate move to
 Nothing. Every item filed during the 2026-08-23 session is fixed and recorded
 below; anything new goes here.
 
-## Fixed after 2.0.1
+## Fixed in 2.1.0
 
 ### The `alias` directive was invisible to a static checker
 
@@ -300,7 +300,7 @@ Nothing in the tree exercised either class, samples included; the
 *Found and fixed 2026-08-23.* `#!/usr/bin389/env python`. Harmless, since the
 module is imported rather than executed, and the only such line in the tree.
 
-## Fixed after 2.0.0
+## Fixed in 2.0.1
 
 ### The GPLv3 header was stripped from three shipped files
 
