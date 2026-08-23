@@ -5,6 +5,38 @@ evil. Do not re-open these without new evidence.
 
 *Last updated: 2026-08-23*
 
+## Upstream is dormant, and this fork already contains all of it
+
+*2026-08-23*
+
+Checked on 2026-08-23, after a request to pull new upstream commits: **there
+are none, and there is nothing to merge.**
+
+`mementum/backtrader` last received a commit on **2023-04-19** (`b853d7c`,
+"Version 1.9.78.123"). That is the tip of both `master` and `development`. The
+three other branches are older still - `fix-compression` 2018-10-10,
+`merge_memento_backtrader` 2020-07-06, `numpylines` 2017-02-19 - and upstream
+never merged them. The repository is not archived; it is simply inactive.
+
+More importantly, the fork is **content-identical** to that tip. Our history
+diverged from upstream's at `8ee132c` (2018-01-25) and re-applied the same work
+on parallel commits, so `git log master..upstream/master` prints 165 commits
+that look missing and are not: `git diff upstream/master 2a64c42` is **empty**,
+byte for byte, and `2a64c42` is an ancestor of `master`. Everything after it on
+`master` is this fork's own work.
+
+The `git log` commit count is therefore the wrong instrument here and will
+mislead the next reader too. Compare trees, not commit lists:
+
+```shell
+git fetch upstream
+git diff upstream/master 2a64c42     # empty == fully in sync
+```
+
+`upstream` (`https://github.com/mementum/backtrader.git`) is now a configured
+remote so this check costs one command. Do not re-open the question without
+first seeing that diff come back non-empty.
+
 ## Distribution `slim-backtrader`, import `backtrader`
 
 *2026-08-23*

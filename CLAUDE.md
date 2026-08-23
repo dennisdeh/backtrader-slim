@@ -113,7 +113,12 @@ And what bounds it:
 - Commit when asked. **Never push, never merge into `master`, never delete a
   branch** without an explicit instruction. The full commit→push→merge flow is
   *not* the default here.
-- The remote is `origin` = `git@github.com:dennisdeh/backtrader.git` (SSH).
+- The remote is `origin` = `git@github.com:dennisdeh/backtrader-slim.git` (SSH).
+  The GitHub repository was renamed from `backtrader`; the old URL still
+  301-redirects, but that redirect dies the moment anything else claims the
+  old name, so do not rely on it.
+- **`upstream` = `https://github.com/mementum/backtrader.git` is configured.**
+  It is dormant - see `reports/DECISIONS.md` before proposing a sync.
   Run `git remote -v` before diagnosing any push/fetch failure.
 - **There is no PR workflow and no `gh` usage in this repository.** Reaching for
   `gh` wastes a turn.

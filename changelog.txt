@@ -1,3 +1,16 @@
+Unreleased:
+  PACKAGING
+  - project.urls point at github.com/dennisdeh/backtrader-slim. The GitHub
+    repository was renamed from `backtrader`; the old URLs 301-redirect today,
+    but that redirect stops working if anything else ever claims the old name.
+    2.0.0 is already on PyPI carrying the old URLs and its metadata is
+    immutable, so the corrected links reach PyPI with the next release.
+
+  OTHER
+  - Upstream `mementum/backtrader` is now a configured git remote. It has had
+    no commit since 2023-04-19 and this fork is byte-identical to its tip;
+    reports/DECISIONS.md records the evidence and the one-command re-check.
+
 2.0.0:
   API BREAKS
   - Python 3.13 is now the minimum. Support for every earlier interpreter is

@@ -60,10 +60,10 @@ dev = [
 btrun = "backtrader.btrun:btrun"
 
 [project.urls]
-Homepage = "https://github.com/dennisdeh/backtrader"
-Repository = "https://github.com/dennisdeh/backtrader"
-Changelog = "https://github.com/dennisdeh/backtrader/blob/master/changelog.txt"
-Issues = "https://github.com/dennisdeh/backtrader/issues"
+Homepage = "https://github.com/dennisdeh/backtrader-slim"
+Repository = "https://github.com/dennisdeh/backtrader-slim"
+Changelog = "https://github.com/dennisdeh/backtrader-slim/blob/master/changelog.txt"
+Issues = "https://github.com/dennisdeh/backtrader-slim/issues"
 Upstream = "https://github.com/mementum/backtrader"
 
 [tool.setuptools.dynamic]
