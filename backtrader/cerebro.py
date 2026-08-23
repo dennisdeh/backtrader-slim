@@ -30,11 +30,6 @@ import itertools
 import os
 import pickle
 
-try:  # For new Python versions
-    collectionsAbc = collections.abc  # collections.Iterable -> collections.abc.Iterable
-except AttributeError:  # For old Python versions
-    collectionsAbc = collections  # Используем collections.Iterable
-
 import backtrader as bt
 
 from . import linebuffer
@@ -364,9 +359,7 @@ class Cerebro(metaclass=MetaParams):
         for elem in iterable:
             if isinstance(elem, str):
                 elem = (elem,)
-            elif not isinstance(
-                elem, collectionsAbc.Iterable
-            ):  # Different functions will be called for different Python versions
+            elif not isinstance(elem, collections.abc.Iterable):
                 elem = (elem,)
 
             niterable.append(elem)

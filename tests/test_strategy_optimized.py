@@ -26,10 +26,7 @@
 import itertools
 import time
 
-try:
-    time_clock = time.process_time
-except:
-    time_clock = time.clock
+time_clock = time.process_time
 
 import testcommon
 
