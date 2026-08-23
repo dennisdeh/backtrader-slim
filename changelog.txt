@@ -36,9 +36,32 @@ UNRELEASED
     saw it exhausted.
 
   FIXES
+  - filters.DataFilter and filters.DataFiller could not load a single bar.
+    Both wrap another feed rather than filtering one in place, and both
+    raised AttributeError on _tzinput: nothing hands the inner feed to
+    cerebro, so nothing gave it an environment, and they called the wrapped
+    feed's start() where only _start() reaches _start_finish() - the half
+    that sets _tzinput and the trading calendar. Nothing in the tree
+    exercised either class, which is why they sat at 12% and 16% coverage.
+    Two defects behind that one remain, recorded in reports/OPEN_ITEMS.md
+    and pinned by strict xfail tests: DataFilter delivers every bar twice
+    under preload, and DataFiller reads the wrapped feed's numeric
+    `sessionend` where it needs `p.sessionend`, the datetime.time.
   - backtrader/strategy.py carried a corrupt shebang (`#!/usr/bin389/env
     python`). Harmless, since the module is imported rather than executed,
     but it was the only such line in the tree.
+
+  MODERNIZATION
+  - The last Python 2 shims are gone. cerebro.py and writer.py both carried
+    a try/except around collections.abc; both call sites use
+    collections.abc.Iterable directly. tests/test_strategy_optimized.py fell
+    back to time.clock, removed from Python in 3.8, on a bare except.
+
+  TESTS
+  - 259 -> 333 tests, 47.9s -> 48.3s. Coverage 73% -> 75% of statements,
+    69% -> 71% counting branches. tests/test_concurrency.py is new; the
+    additions to test_position.py, test_trade.py and test_filters_sizers.py
+    went into those existing files rather than parallel ones.
 
   TOOLING
   - tools/benchmark.py measures where the engine spends its time: engine
