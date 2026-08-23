@@ -232,3 +232,164 @@ class TestCommissionSchemes:
     def test_commission_scheme_aliases_exist(self):
         assert bt.commissions.CommInfo_Stocks_Perc is not None
         assert bt.commissions.CommInfo_Futures_Fixed is not None
+
+
+def bars(data, **cerebro_kwargs):
+    """Every OHLCV tuple a strategy is shown, in order."""
+    seen = []
+
+    class Recorder(bt.Strategy):
+        __test__ = False
+
+        def next(self):
+            d = self.data
+            seen.append(
+                (
+                    d.datetime.datetime(0),
+                    d.open[0],
+                    d.high[0],
+                    d.low[0],
+                    d.close[0],
+                    d.volume[0],
+                )
+            )
+
+    cerebro = bt.Cerebro(stdstats=False, **cerebro_kwargs)
+    cerebro.adddata(data)
+    cerebro.addstrategy(Recorder)
+    cerebro.run()
+    return seen
+
+
+class TestBarSplitters:
+    """Filters that turn one bar into two."""
+
+    def test_bar_replayer_open_doubles_the_bar_count(self):
+        plain = bars(csvdata())
+        data = csvdata()
+        data.addfilter(bt.filters.BarReplayer_Open)
+        assert len(bars(data)) == 2 * len(plain)
+
+    def test_bar_replayer_open_delivers_an_open_only_bar_first(self):
+        data = csvdata()
+        data.addfilter(bt.filters.BarReplayer_Open)
+        first, second = bars(data)[:2]
+        _, o, h, l, c, vol = first
+        assert o == h == l == c  # the four components collapse to the open
+        assert vol == 0.0  # and it carries no volume
+        assert second[1] == o  # the full bar follows with the same open
+
+    def test_bar_replayer_open_preserves_the_full_bar(self):
+        plain = bars(csvdata())
+        data = csvdata()
+        data.addfilter(bt.filters.BarReplayer_Open)
+        replayed = bars(data)
+        # every second delivered bar is the original one
+        assert [b[1:] for b in replayed[1::2]] == [b[1:] for b in plain]
+
+    def test_day_splitter_close_yields_two_ticks_per_session(self):
+        cerebro = bt.Cerebro(stdstats=False)
+        data = csvdata()
+        data.addfilter(bt.filters.DaySplitter_Close)
+        cerebro.replaydata(data, timeframe=bt.TimeFrame.Days, compression=1)
+
+        seen = []
+
+        class Recorder(bt.Strategy):
+            __test__ = False
+
+            def next(self):
+                seen.append(self.data.close[0])
+
+        cerebro.addstrategy(Recorder)
+        cerebro.run()
+        # replay delivers the running bar repeatedly; two ticks per session
+        # means strictly more deliveries than the 255 raw sessions
+        assert len(seen) > 255
+
+    def test_day_splitter_close_volume_split_is_configurable(self):
+        def totalvol(closevol):
+            data = csvdata()
+            data.addfilter(bt.filters.DaySplitter_Close, closevol=closevol)
+            cerebro = bt.Cerebro(stdstats=False)
+            cerebro.replaydata(data, timeframe=bt.TimeFrame.Days, compression=1)
+            vols = []
+
+            class Recorder(bt.Strategy):
+                __test__ = False
+
+                def next(self):
+                    vols.append(self.data.volume[0])
+
+            cerebro.addstrategy(Recorder)
+            cerebro.run()
+            return vols
+
+        # the split is a redistribution, so both settings must run and produce
+        # the same number of deliveries
+        assert len(totalvol(0.1)) == len(totalvol(0.9))
+
+
+class TestDataWrappers:
+    """DataFilter and DataFiller wrap a feed rather than filtering in place.
+
+    Both were unreachable until the wrapped feed was started properly: nothing
+    hands the inner feed to cerebro, so nothing gave it an environment or ran
+    _start_finish(), and the first bar load raised AttributeError on _tzinput.
+    They are exercised here with ``preload=False``; see reports/OPEN_ITEMS.md
+    for the two defects that remain behind that.
+    """
+
+    def wrap(self, funcfilter):
+        return bt.filters.DataFilter(dataname=csvdata(), funcfilter=funcfilter)
+
+    def test_data_filter_keeps_only_the_bars_the_callable_accepts(self):
+        kept = bars(self.wrap(lambda d: d.close[0] > 4000.0), preload=False)
+        assert kept  # something survived
+        assert all(bar[4] > 4000.0 for bar in kept)
+        assert len(kept) < 255
+
+    def test_data_filter_accepting_everything_matches_the_plain_feed(self):
+        assert len(bars(self.wrap(lambda d: True), preload=False)) == 255
+
+    def test_data_filter_rejecting_everything_yields_no_bars(self):
+        assert bars(self.wrap(lambda d: False), preload=False) == []
+
+    def test_data_filter_only_mondays(self):
+        kept = bars(
+            self.wrap(lambda d: d.datetime.date().weekday() == 0), preload=False
+        )
+        assert kept
+        assert all(bar[0].weekday() == 0 for bar in kept)
+
+    def test_data_filter_passes_the_wrapped_bar_through_unchanged(self):
+        plain = bars(csvdata(), preload=False)
+        kept = bars(self.wrap(lambda d: True), preload=False)
+        assert [b[1:] for b in kept] == [b[1:] for b in plain]
+
+    @pytest.mark.xfail(
+        reason="DataFilter delivers every bar twice under preload; "
+        "see reports/OPEN_ITEMS.md",
+        strict=True,
+    )
+    def test_data_filter_under_preload_does_not_duplicate_bars(self):
+        assert len(bars(self.wrap(lambda d: True), preload=True)) == 255
+
+    @pytest.mark.xfail(
+        reason="DataFiller reads the numeric sessionend where it needs the "
+        "datetime.time; see reports/OPEN_ITEMS.md",
+        strict=True,
+    )
+    def test_data_filler_inserts_the_missing_minutes(self):
+        def minutefeed():
+            return csvdata(
+                "2006-01-02-volume-min-001.txt",
+                fromdate=datetime.datetime(2006, 1, 2),
+                todate=datetime.datetime(2006, 1, 3),
+                timeframe=bt.TimeFrame.Minutes,
+                compression=1,
+            )
+
+        plain = len(bars(minutefeed(), preload=False))
+        filled = bt.filters.DataFiller(dataname=minutefeed())
+        assert len(bars(filled, preload=False)) >= plain

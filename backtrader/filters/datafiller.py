@@ -65,10 +65,21 @@ class DataFiller(AbstractDataBase):
         self._fillbars = collections.deque()
         self._dbar = False
 
+    def _startinner(self):
+        """Start the wrapped feed the way cerebro starts a feed of its own.
+
+        The inner feed is never handed to cerebro, so nothing else gives it an
+        environment or runs the second half of its start-up: _start_finish()
+        is what sets _tzinput and the trading calendar, and plain start() does
+        not reach it.
+        """
+        self.p.dataname.setenvironment(self._env)
+        self.p.dataname._start()
+
     def preload(self):
         if len(self.p.dataname) == self.p.dataname.buflen():
             # if data is not preloaded .... do it
-            self.p.dataname.start()
+            self._startinner()
             self.p.dataname.preload()
             self.p.dataname.home()
 
@@ -111,7 +122,7 @@ class DataFiller(AbstractDataBase):
 
     def _load(self):
         if not len(self.p.dataname):
-            self.p.dataname.start()  # start data if not done somewhere else
+            self._startinner()  # start data if not done somewhere else
 
             # Copy from underlying data
             self._timeframe = self.p.dataname._timeframe
