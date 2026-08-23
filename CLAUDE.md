@@ -184,10 +184,11 @@ And what bounds it:
 
 ## Versioning and release  **[core]**
 
-- **The next release is `2.0.0`, plain semver.** Upstream's `X.Y.Z.I` scheme —
-  where `I` counted the built-in indicators — is **retired**; the fourth digit is
-  gone, and `__btversion__` in `backtrader/version.py` is a 3-tuple, derived from
-  `__version__` — bumping the string is the whole change.
+- **Plain semver, `X.Y.Z`. The current release is `2.0.1`** (2026-08-23).
+  Upstream's `X.Y.Z.I` scheme — where `I` counted the built-in indicators — is
+  **retired**; the fourth digit is gone, and `__btversion__` in
+  `backtrader/version.py` is a 3-tuple, derived from `__version__` — bumping the
+  string is the whole change.
 - Bump the version **only when asked**.
 - **The distribution is `slim-backtrader`; the import package is `backtrader`.**
   PyPI's `backtrader` is upstream's and can never be reused. `pip install

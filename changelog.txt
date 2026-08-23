@@ -1,4 +1,4 @@
-Unreleased:
+2.0.1: 2026-08-23
   LICENSING
   - Restored the GPLv3 header block in backtrader/brokers/__init__.py,
     backtrader/feeds/__init__.py and backtrader/stores/__init__.py. Commit
