@@ -108,7 +108,7 @@ figs[0][0].savefig("result.png")
 conda env create -f environment.yml
 conda activate slim-backtrader
 pip install -e ".[dev]"
-pytest                       # 254 tests, ~50s
+pytest                       # 259 tests, ~47s
 pytest --cov                 # with coverage
 ```
 
@@ -161,6 +161,31 @@ Upstream backtrader used a fourth digit for the number of built-in indicators
 (`1.9.78.123`). That digit is retired as of `2.0.0`, and `__btversion__` is now
 a 3-tuple.
 
-## License
+## License and attribution
 
-GPL-3.0-or-later, inherited from upstream backtrader.
+**slim-backtrader is a modified version of
+[backtrader](https://github.com/mementum/backtrader), originally written by
+Daniel Rodriguez.** All of the engine's design and the overwhelming majority of
+its code are his work; this fork subtracts from it and modernizes it rather
+than replacing it.
+
+- Copyright © 2015–2023 Daniel Rodriguez (original work)
+- Copyright © 2026 Dennis Hansen (modifications)
+
+Licensed under the **GNU General Public License, version 3 or later**, the same
+licence as upstream. The full text ships with the package in `LICENSE`; if you
+did not receive it, see <https://www.gnu.org/licenses/>.
+
+This program comes with ABSOLUTELY NO WARRANTY. It is free software, and you
+are welcome to redistribute it under the conditions of the GPL.
+
+Every source file modified by this fork says so in its header, with the year,
+as GPL-3.0 section 5(a) requires. What was changed is recorded in
+`changelog.txt` — the 2.0.0 entry lists the removed integrations, the dropped
+Python 2 layer and every API break.
+
+One file is **not** under the GPL: `backtrader/plot/multicursor.py` is derived
+from matplotlib 1.2.0 and carries its own licence from John D. Hunter
+(Copyright © 2002–2011), reproduced in full at the top of that file, along with
+a summary of the changes made to it. It is GPL-compatible, which is why it can
+be distributed as part of this work.

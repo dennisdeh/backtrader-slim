@@ -59,6 +59,15 @@
 #
 # The modified version uses the y limits of each axis to calculate the initial
 # position of each line avoiding the distorsion
+#
+# Further changes in slim-backtrader (2026, Dennis Hansen), kept here because
+# clause 3 of the licence above asks a derivative work to summarise them:
+# the Python 2 compatibility import of `zip` from backtrader.utils.py3 was
+# removed, that module having been deleted, and the file was reformatted with
+# Black at 88 columns. Neither alters the behaviour of the widget.
+#
+# This file is licensed under the matplotlib licence reproduced above, not
+# under the GPL that covers the rest of slim-backtrader.
 
 
 class Widget(object):

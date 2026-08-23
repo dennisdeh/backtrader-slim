@@ -4,6 +4,10 @@
 #
 # Copyright (C) 2015-2023 Daniel Rodriguez
 # Copyright (C) 2015-2023 Daniel Rodriguez
+# Copyright (C) 2026 Dennis Hansen
+#
+# This file is part of slim-backtrader, a modified version of backtrader.
+# Modified in 2026 by Dennis Hansen. See changelog.txt for the changes.
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by

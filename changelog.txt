@@ -1,4 +1,36 @@
 Unreleased:
+  LICENSING
+  - Restored the GPLv3 header block in backtrader/brokers/__init__.py,
+    backtrader/feeds/__init__.py and backtrader/stores/__init__.py. Commit
+    3359215 stripped all three while rewriting their import lists, which
+    dropped upstream's copyright notice from files that still ship. GPL-3.0
+    section 4 requires those notices to be kept intact. 2.0.0 went to PyPI
+    without them.
+  - Every file this fork modified now carries a modification notice with the
+    year, as GPL-3.0 section 5(a) requires of a modified work, alongside
+    upstream's unchanged copyright line: 151 files under backtrader/ and 83
+    under tests/. backtrader/studies/contrib/fractal.py is untouched from
+    upstream and is left exactly as it was.
+  - The nine fork-authored test modules (conftest.py, test_analyzers.py,
+    test_broker.py, test_cerebro.py, test_feeds.py, test_filters_sizers.py,
+    test_orders_advanced.py, test_resampling_intraday.py, test_utils.py) had
+    no licence header at all and now carry one. They ship in the sdist.
+  - backtrader/plot/multicursor.py is derived from matplotlib 1.2.0 and is
+    under John D. Hunter's licence, not the GPL. Clause 3 of that licence
+    asks a derivative work to summarise its changes, so the fork's changes
+    are now summarised there next to upstream's existing CHANGES note, and
+    the file states which licence covers it.
+  - tests/test_licensing.py is new: it asserts that every shipped source file
+    keeps a licence header, that upstream's copyright line is never dropped,
+    that modified files carry their modification notice, that LICENSE is the
+    GPLv3 text and that the README credits upstream. It fails against the
+    pre-fix tree, which is how the stripped headers were found. The suite is
+    254 -> 259 tests, still offline.
+  - README: the one-line "License" section is now "License and attribution" -
+    it credits Daniel Rodriguez as the original author, names both copyright
+    holders, states the GPL warranty disclaimer and points at LICENSE. This
+    is the text PyPI renders as the project page.
+
   PACKAGING
   - project.urls point at github.com/dennisdeh/backtrader-slim. The GitHub
     repository was renamed from `backtrader`; the old URLs 301-redirect today,

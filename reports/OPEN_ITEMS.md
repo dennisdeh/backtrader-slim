@@ -4,7 +4,7 @@ Places where the code does something other than what it should. Fixed entries
 move out of this file; things that turn out to be deliberate move to
 `DECISIONS.md`.
 
-*Last updated: 2026-08-22*
+*Last updated: 2026-08-23*
 
 ## Open
 
@@ -41,6 +41,32 @@ them as undefined and cannot see genuine mistakes in those files. `ols.py`,
 
 *Impact:* the static check that caught a real break during the Python 2 sweep
 is blind in exactly those modules.
+
+## Fixed after 2.0.0
+
+### The GPLv3 header was stripped from three shipped files
+
+*Found and fixed 2026-08-23. Shipped broken in 2.0.0.*
+
+`backtrader/brokers/__init__.py`, `backtrader/feeds/__init__.py` and
+`backtrader/stores/__init__.py` lost their entire GPLv3 header block —
+upstream's copyright line included — in commit `3359215` ("Remove integrations
+that depend on abandoned packages"), which rewrote the import lists at the top
+of each file and took the comment block with them. 2.0.0 was uploaded to PyPI
+in that state.
+
+This matters beyond tidiness: GPL-3.0 section 4 requires that the licence and
+copyright notices be kept intact on every copy conveyed, and these files are
+conveyed in both the wheel and the sdist. It also broke the rule CLAUDE.md
+states outright — the header block stays, even during a mechanical sweep.
+
+The headers are restored, and `tests/test_licensing.py` now fails if any
+shipped file loses its notice again. That test was demonstrated red against the
+pre-fix tree before the fix was kept.
+
+Related, found in the same pass and fixed with it: no file said it had been
+modified, which GPL-3.0 section 5(a) requires of a modified work, and the nine
+fork-authored test modules carried no licence header at all.
 
 ## Fixed in 2.0.0
 

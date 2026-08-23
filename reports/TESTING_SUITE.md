@@ -8,7 +8,7 @@ What is tested, how it is selected, and what it costs.
 
 ```shell
 conda activate slim-backtrader
-pytest                  # 254 tests, ~50 s
+pytest                  # 259 tests, ~47 s
 pytest --cov            # adds coverage, ~4 min
 pytest -m "not plotting"   # skip the two matplotlib rendering tests
 ```
@@ -32,6 +32,7 @@ and any `SyntaxWarning` into errors.
 | `test_feeds.py` | 16 | CSV family, PandasData, Chainer, RollOver |
 | `test_filters_sizers.py` | 23 | filters, sizers, fillers, commission schemes |
 | `test_strategy_*.py`, `test_writer.py`, `test_metaclass.py`, others | 11 | strategy runs, writer output, metaclass machinery |
+| `test_licensing.py` | 5 | GPLv3 notices, upstream copyright, modification notices, LICENSE, README attribution |
 
 ## The golden-value contract
 
