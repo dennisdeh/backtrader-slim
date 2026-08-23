@@ -1,14 +1,14 @@
-# Development environment for Slim Backtrader.
+# Development environment for slim-backtrader.
 #
 #   conda env create -f environment.yml
-#   conda activate backtrader
+#   conda activate slim-backtrader
 #   pip install -e ".[dev]"
 #
 # The engine itself has no third-party runtime dependencies. Everything below
 # is for the test suite, the optional feeds and the tooling; versions are left
 # unpinned so a fresh env gets current releases. The floors that actually
 # matter to the package are declared in pyproject.toml.
-name: backtrader
+name: slim-backtrader
 channels:
   - conda-forge
 dependencies:

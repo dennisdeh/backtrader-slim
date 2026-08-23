@@ -39,6 +39,20 @@
     run went from 739720 warnings to none.
 
   PACKAGING
+  - Distribution name is now `slim-backtrader`. Install with
+    `pip install slim-backtrader`; the import name is unchanged, so
+    `import backtrader as bt` still works. PyPI's `backtrader` belongs to
+    upstream and a name there is never reusable. Consequence: this fork and
+    upstream backtrader cannot be installed into the same environment - both
+    own the `backtrader` import name.
+  - MANIFEST.in added. The sdist ships the test suite together with the
+    datas/ fixtures it reads, so it can be verified without a clone;
+    contrib/, samples/, tools/ and reports/ are excluded.
+  - twine added to the `dev` extra. Release steps are in the README.
+  - The conda development environment is renamed `backtrader` ->
+    `slim-backtrader` (environment.yml). An existing env is renamed with
+    `conda rename -n backtrader slim-backtrader`; a fresh one comes from
+    `conda env create -f environment.yml`.
   - PEP 621 pyproject.toml replaces setup.py. requires-python >=3.13, SPDX
     license expression, version read dynamically from backtrader/version.py.
   - The package declares NO runtime dependencies. Optional features are

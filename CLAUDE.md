@@ -1,4 +1,4 @@
-# CLAUDE.md — Slim Backtrader
+# CLAUDE.md — slim-backtrader
 
 *How to work in this repository. What the code *is*, read the code for. What is
 here is what the code cannot tell you: which command to trust, what "done"
@@ -33,7 +33,7 @@ the change advances one of those three goals, and any API break is recorded.
 ## Environment  **[core]**
 
 ```bash
-conda activate backtrader
+conda activate slim-backtrader
 ```
 
 - Environment definition: `environment.yml` at the repo root. Create the env with
@@ -184,6 +184,10 @@ And what bounds it:
   gone, and `__btversion__` in `backtrader/version.py` is a 3-tuple, derived from
   `__version__` — bumping the string is the whole change.
 - Bump the version **only when asked**.
+- **The distribution is `slim-backtrader`; the import package is `backtrader`.**
+  PyPI's `backtrader` is upstream's and can never be reused. `pip install
+  backtrader` installs upstream, not this fork - and the two cannot coexist.
+  Release steps are the README's *Releasing* section.
 - **Never run `pypi.sh`, `setup.py bdist_wheel` for release, or `twine upload`.**
   Publishing is not an agent action.
 - `changelog.txt` is the change record: append notable changes, and always

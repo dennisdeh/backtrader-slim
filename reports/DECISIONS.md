@@ -3,7 +3,27 @@
 Things that were examined and found to be correct, deliberate, or the lesser
 evil. Do not re-open these without new evidence.
 
-*Last updated: 2026-08-22*
+*Last updated: 2026-08-23*
+
+## Distribution `slim-backtrader`, import `backtrader`
+
+*2026-08-23*
+
+The PyPI name `backtrader` belongs to upstream (checked 2026-08-23: the JSON
+API returns 200), and a name on PyPI is never reusable — not even after the
+project owning it is deleted. The fork therefore publishes as
+`slim-backtrader`, which was free on the same date.
+
+The **import** package deliberately stays `backtrader`, so `import backtrader
+as bt` keeps working and no strategy code has to move. The accepted cost: this
+fork and upstream cannot be installed into the same environment, because both
+own the top-level `backtrader` module. Renaming the import package would
+remove that clash and was rejected — it is a far larger API break than a
+packaging change should carry, and it would break every consumer for the
+benefit of a side-by-side install nobody has asked for.
+
+Do not "fix" the clash by renaming the import package without that request
+arriving first. See `reports/sessions/2026-08-23_pypi-packaging.md`.
 
 ## Removing the live-trading integrations
 

@@ -1,4 +1,4 @@
-# Slim Backtrader
+# slim-backtrader
 
 A fork of [backtrader](https://github.com/mementum/backtrader), slimmed down and
 brought up to date with modern Python.
@@ -21,18 +21,35 @@ Feel free to contribute!
 ## Installation
 
 ```shell
-pip install -e .
+pip install slim-backtrader
 ```
+
+The distribution is named **`slim-backtrader`**; the import name stays
+`backtrader`, so existing strategy code keeps working unchanged:
+
+```python
+import backtrader as bt
+```
+
+Upstream owns `backtrader` on PyPI and a name there can never be reused, hence
+the different distribution name. The flip side is that **this fork and upstream
+cannot be installed side by side** — both claim the `backtrader` import name.
+Uninstall one before installing the other.
 
 The engine has **no third-party runtime dependencies**. Optional features are
 installed as extras:
 
 ```shell
-pip install -e ".[plotting]"    # matplotlib, for cerebro.plot()
-pip install -e ".[pandas]"      # pandas >= 2.2, for the PandasData feed
-pip install -e ".[online]"      # requests, for the Yahoo online feed
-pip install -e ".[calendars]"   # pandas_market_calendars
-pip install -e ".[talib]"       # TA-Lib indicator bindings
+pip install "slim-backtrader[plotting]"    # matplotlib, for cerebro.plot()
+pip install "slim-backtrader[pandas]"      # pandas >= 2.2, for the PandasData feed
+pip install "slim-backtrader[online]"      # requests, for the Yahoo online feed
+pip install "slim-backtrader[calendars]"   # pandas_market_calendars
+pip install "slim-backtrader[talib]"       # TA-Lib indicator bindings
+```
+
+To work on the fork itself, install it editable from a clone instead:
+
+```shell
 pip install -e ".[dev]"         # the test suite and tooling
 ```
 
@@ -89,7 +106,7 @@ figs[0][0].savefig("result.png")
 
 ```shell
 conda env create -f environment.yml
-conda activate backtrader
+conda activate slim-backtrader
 pip install -e ".[dev]"
 pytest                       # 254 tests, ~50s
 pytest --cov                 # with coverage
@@ -103,6 +120,33 @@ pytest --cov                 # with coverage
 - **Docs**: [Full Documentation](http://www.backtrader.com/docu) — written for
   upstream; the removed integrations above no longer apply
 - **Indicators Reference**: [List of Built-in Indicators](http://www.backtrader.com/docu/indautoref.html)
+
+## Releasing
+
+Publishing is a manual, maintainer-only step — there is no CI and no automated
+release. From a clean checkout of `master`:
+
+```shell
+conda activate slim-backtrader
+pytest                              # must be green before anything else
+rm -rf dist build                   # stale artefacts get uploaded otherwise
+python -m build                     # writes dist/*.tar.gz and dist/*.whl
+twine check dist/*                  # metadata and README render
+twine upload --repository testpypi dist/*      # dry run on TestPyPI first
+twine upload dist/*                            # the real thing
+```
+
+Notes that save a wasted upload:
+
+- **A version can only be uploaded once.** PyPI rejects a re-upload of the same
+  version even after a delete, so bump `__version__` in `backtrader/version.py`
+  rather than retrying. Everything else — the version in the wheel, the sdist
+  and the metadata — is derived from that one string.
+- Authenticate with a **PyPI API token** (username `__token__`), stored in
+  `~/.pypirc` or passed as `TWINE_USERNAME` / `TWINE_PASSWORD`. Scope the token
+  to this project once it exists.
+- Verify the built artefacts before uploading, in a throwaway environment:
+  `pip install dist/slim_backtrader-*.whl && python -c "import backtrader"`.
 
 ## Version Numbering
 

@@ -3,8 +3,10 @@ requires = ["setuptools>=77"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "backtrader"
-description = "BackTesting Engine"
+# The import package stays `backtrader`; only the distribution name differs.
+# PyPI's `backtrader` belongs to upstream, and a name there is never reusable.
+name = "slim-backtrader"
+description = "A slimmed, modernized fork of backtrader: backtesting and live trading in pure Python"
 readme = "README.md"
 requires-python = ">=3.13"
 license = "GPL-3.0-or-later"
@@ -25,6 +27,7 @@ classifiers = [
     "Intended Audience :: Financial and Insurance Industry",
     "Topic :: Software Development",
     "Topic :: Office/Business :: Financial",
+    "Topic :: Office/Business :: Financial :: Investment",
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3.13",
     "Programming Language :: Python :: 3.14",
@@ -47,6 +50,7 @@ dev = [
     "pytest-cov>=5.0",
     "black>=24.3",
     "build>=1.2",
+    "twine>=5.1",
     "matplotlib>=3.9",
     "pandas>=2.2",
     "requests>=2.32",
@@ -59,6 +63,7 @@ btrun = "backtrader.btrun:btrun"
 Homepage = "https://github.com/dennisdeh/backtrader"
 Repository = "https://github.com/dennisdeh/backtrader"
 Changelog = "https://github.com/dennisdeh/backtrader/blob/master/changelog.txt"
+Issues = "https://github.com/dennisdeh/backtrader/issues"
 Upstream = "https://github.com/mementum/backtrader"
 
 [tool.setuptools.dynamic]

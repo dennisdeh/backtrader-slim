@@ -1,0 +1,17 @@
+# setuptools' legacy sdist heuristic picks up `tests/test*.py` on its own and
+# nothing else - which silently ships a suite missing conftest.py and every
+# fixture it reads. Graft both directories explicitly instead.
+graft tests
+graft datas
+
+# Upstream material being pruned rather than maintained, plus local notes.
+prune contrib
+prune samples
+prune tools
+prune reports
+prune .claude
+prune .idea
+
+global-exclude *.py[cod]
+global-exclude .coverage
+prune **/__pycache__

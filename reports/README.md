@@ -16,3 +16,4 @@ standing question; point-in-time records live in `sessions/`.
 | report |
 |---|
 | [2026-08-22 — Slimming, modernization and test coverage](sessions/2026-08-22_slim-and-modernize.md) |
+| [2026-08-23 — Preparing the first PyPI upload](sessions/2026-08-23_pypi-packaging.md) |
