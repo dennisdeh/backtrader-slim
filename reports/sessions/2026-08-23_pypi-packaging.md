@@ -69,15 +69,29 @@ without a clone, and it costs 650 KB.
 Artefact sizes: wheel 328 KB, sdist 896 KB. No `__pycache__` or `.pyc` in
 either.
 
+## Published
+
+`slim-backtrader` **2.0.0** was uploaded to PyPI on **2026-08-23**, from the
+artefacts built at commit `4bb2e51`. That upload is what created the project;
+there was no pre-registration step. No TestPyPI rehearsal was possible - the
+token was scoped to pypi.org, and TestPyPI is a separate account.
+
+Verified afterwards against the live index: `pip install slim-backtrader` into
+a fresh venv installs `pip` and `slim-backtrader` and nothing else,
+`import backtrader` gives `2.0.0 / (2, 0, 0)`, and `btrun --help` works. The
+served metadata reports the SPDX license `GPL-3.0-or-later`,
+`Requires-Python >=3.13` and **no** non-extra dependencies.
+
+https://pypi.org/project/slim-backtrader/2.0.0/
+
 ## What is left
 
-- **Nothing blocks the upload.** The remaining steps are maintainer-only and
-  deliberately not automated; the runbook is the *Releasing* section of the
-  README.
-- The first `twine upload` is what creates the PyPI project. There is no
-  pre-registration step to perform beforehand.
-- Do a TestPyPI upload first. It is the only way to see the rendered project
-  page before the name is spent, and **a version number cannot be reused** on
-  either index.
-- No CI publishes anything and none is proposed. Trusted Publishing is worth
-  revisiting only if this repository ever gains a workflow.
+- **Rotate the upload token.** The 2.0.0 upload used an *account*-scoped token,
+  which is the only kind that can create a project. Now that the project
+  exists, revoke it and mint a token scoped to `slim-backtrader` alone.
+- **`2.0.0` is spent.** PyPI refuses a re-upload of a version even after the
+  files are deleted, so any correction ships as `2.0.1` - bump `__version__` in
+  `backtrader/version.py` and nothing else.
+- The release runbook is the README's *Releasing* section. Nothing about it is
+  automated, and no CI is proposed; Trusted Publishing is worth revisiting only
+  if this repository ever gains a workflow.
