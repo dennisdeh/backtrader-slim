@@ -142,10 +142,13 @@ class YahooFinanceCSVData(feed.CSVDataBase):
         # 2018-11-16 ... Adjusted Close seems to always be delivered after
         # the close and before the volume columns
         adjustedclose = float(linetokens[next(i)])
-        try:
-            v = float(linetokens[next(i)])
-        except:  # cover the case in which volume is "null"
-            v = 0.0
+        # A "null" volume never reaches here: the loop at the top of this
+        # method skips any row carrying one. What the bare `except: v = 0.0`
+        # that used to stand here actually caught was a row too short to have
+        # a volume column, which it turned into a fabricated zero - silently
+        # corrupting every volume-based indicator and sizer downstream. Let it
+        # raise; CSVDataBase._load names the file and the line.
+        v = float(linetokens[next(i)])
 
         if self.p.swapcloses:  # swap closing prices if requested
             c, adjustedclose = adjustedclose, c

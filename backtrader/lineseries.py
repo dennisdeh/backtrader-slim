@@ -487,7 +487,7 @@ class LineSeries(LineMultiple, metaclass=MetaLineSeries):
                 if hasattr(sublabel, "plotinfo"):
                     try:
                         s = sublabel.plotinfo.plotname
-                    except:
+                    except AttributeError:
                         s = ""
 
                     sublabels[i] = s or sublabel.__name__

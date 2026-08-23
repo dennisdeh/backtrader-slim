@@ -694,8 +694,12 @@ class CSVDataBase(DataBase, metaclass=MetaCSVDataBase):
                 # Let an exception propagate to let the caller know
                 self.f = io.open(self.p.dataname, "r")
 
+        # Counts physical lines from the top of the file, header included, so
+        # a parse failure can name the line the user has to go and look at
+        self._lineno = 0
         if self.p.headers:
             self.f.readline()  # skip the headers
+            self._lineno = 1
 
         self.separator = self.p.separator
 
@@ -716,6 +720,39 @@ class CSVDataBase(DataBase, metaclass=MetaCSVDataBase):
         self.f.close()
         self.f = None
 
+    # What a malformed row can raise on its way through _loadline. The list is
+    # deliberately not BaseException, and not even Exception: a KeyboardInterrupt
+    # is not a parsing problem, and neither is a bug in a subclass that happens
+    # to raise something else.
+    _PARSE_ERRORS = (
+        ValueError,
+        TypeError,
+        IndexError,
+        KeyError,
+        ArithmeticError,
+        StopIteration,
+    )
+
+    def _parsefailed(self, error, linetokens):
+        """Re-raise a row failure naming the file and the line that caused it.
+
+        Unhelped, the caller gets `could not convert string to float: 'x'` with
+        no way to tell which of a million rows was at fault - or, when a row is
+        short and the parser walks off the end of it, a bare ``StopIteration``
+        carrying no message at all. StopIteration is also the iteration
+        protocol's sentinel: raising it from a parser means that under PEP 479
+        any caller that is a generator silently turns it into a RuntimeError.
+        """
+        row = self.separator.join(linetokens)
+        if len(row) > 120:
+            row = row[:117] + "..."
+
+        raise ValueError(
+            "{}: line {}: cannot parse {!r}: {}: {}".format(
+                self._dataname, self._lineno, row, type(error).__name__, error
+            )
+        ) from error
+
     def _load(self):
         if self.f is None:
             return False
@@ -726,9 +763,13 @@ class CSVDataBase(DataBase, metaclass=MetaCSVDataBase):
         if not line:
             return False
 
+        self._lineno += 1
         line = line.rstrip("\n")
         linetokens = line.split(self.separator)
-        return self._loadline(linetokens)
+        try:
+            return self._loadline(linetokens)
+        except self._PARSE_ERRORS as error:
+            self._parsefailed(error, linetokens)
 
     def _getnextline(self):
         if self.f is None:
@@ -740,6 +781,7 @@ class CSVDataBase(DataBase, metaclass=MetaCSVDataBase):
         if not line:
             return None
 
+        self._lineno += 1
         line = line.rstrip("\n")
         linetokens = line.split(self.separator)
         return linetokens

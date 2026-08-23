@@ -507,7 +507,7 @@ class Plot_OldSync(metaclass=MetaParams):
             plottedline = pltmethod(xdata, lplotarray, **plotkwargs)
             try:
                 plottedline = plottedline[0]
-            except:
+            except (TypeError, IndexError, KeyError):
                 # Possibly a container of artists (when plotting bars)
                 pass
 

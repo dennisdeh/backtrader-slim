@@ -51,6 +51,14 @@ class Store(metaclass=MetaSingleton):
 
     def getdata(self, *args, **kwargs):
         """Returns ``DataCls`` with args, kwargs"""
+        if self.DataCls is None:
+            # Unguarded this reads "'NoneType' object is not callable", which
+            # says nothing about the contract that was not met
+            raise NotImplementedError(
+                "{} has no DataCls: a Store subclass must set it, normally by "
+                "the data class autoregistering itself".format(type(self).__name__)
+            )
+
         data = self.DataCls(*args, **kwargs)
         data._store = self
         return data
@@ -58,6 +66,12 @@ class Store(metaclass=MetaSingleton):
     @classmethod
     def getbroker(cls, *args, **kwargs):
         """Returns broker with *args, **kwargs from registered ``BrokerCls``"""
+        if cls.BrokerCls is None:
+            raise NotImplementedError(
+                "{} has no BrokerCls: a Store subclass must set it, normally "
+                "by the broker class autoregistering itself".format(cls.__name__)
+            )
+
         broker = cls.BrokerCls(*args, **kwargs)
         broker._store = cls
         return broker

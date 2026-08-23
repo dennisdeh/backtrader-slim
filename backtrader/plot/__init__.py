@@ -33,7 +33,7 @@ else:
     touse = "Agg" if sys.platform != "darwin" else "MacOSX"
     try:
         matplotlib.use(touse)
-    except:
+    except Exception:
         # if another backend has already been loaded, an exception will be
         # generated and this can be skipped
         pass

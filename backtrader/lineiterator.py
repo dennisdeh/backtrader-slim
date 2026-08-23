@@ -56,7 +56,7 @@ class MetaLineIterator(LineSeries.__class__):
             else:
                 try:
                     _obj.datas.append(LineSeriesMaker(LineNum(arg)))
-                except:
+                except (TypeError, ValueError):
                     # Not a LineNum and is not a LineSeries - bail out
                     break
 
