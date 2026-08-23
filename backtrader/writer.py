@@ -105,7 +105,10 @@ class WriterFile(WriterBase):
     )
 
     def __init__(self):
-        self._len = itertools.count(1)
+        # A plain int, not itertools.count: cerebro carries its writers into an
+        # optimization's workers by pickle, and itertools objects lose pickle
+        # support in Python 3.14
+        self._len = 0
         self.headers = list()
         self.values = list()
 
@@ -135,7 +138,8 @@ class WriterFile(WriterBase):
 
     def next(self):
         if self.p.csv:
-            self.writeiterable(self.values, func=str, counter=next(self._len))
+            self._len += 1
+            self.writeiterable(self.values, func=str, counter=self._len)
             self.values = list()
 
     def addheaders(self, headers):

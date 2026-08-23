@@ -1,3 +1,59 @@
+UNRELEASED
+  CONCURRENCY
+  - Optimization now runs on concurrent.futures instead of multiprocessing.Pool.
+    New Cerebro parameter `executor` (default: 'process') picks the pool:
+    'process' is a ProcessPoolExecutor and behaves as the old Pool did;
+    'thread' is a ThreadPoolExecutor, which hands each worker a private copy
+    of the cerebro so it returns identical results. On a GIL-carrying
+    interpreter 'thread' will not make optimization faster - the work is
+    CPU-bound Python - and it is there for free-threaded builds and for
+    debugging inside one address space. An unknown value raises ValueError
+    when run() is called, whether or not maxcpus would build a pool.
+    The pool is now closed through a context manager; the old code called
+    pool.close() and never joined.
+  - The object cache behind `objcache` is per-thread. It lived on the
+    MetaIndicator/MetaLineActions metaclasses, i.e. process-wide, and
+    cerebro.run() clears it and switches it on or off on every call, so two
+    cerebros running in different threads clobbered each other: a run with
+    objcache=False, executing concurrently with one using objcache=True,
+    silently received the other's cached indicator instances and built two
+    indicators where it had declared three. tests/test_concurrency.py pins the
+    interleaving that reproduces it rather than leaving it to chance, and
+    fails against the unfixed tree.
+    The duplicated cache logic in both metaclasses is now one class,
+    backtrader.metabase.ObjectCache.
+
+  PYTHON 3.14
+  - itertools objects are no longer stored on anything an optimization
+    pickles. Python 3.14 removes pickle/copy/deepcopy support from itertools,
+    which would have broken optimization with maxcpus > 1 outright. Four
+    places held one: Cerebro._dataid, Cerebro.stcount, Strategy._alnames and
+    WriterFile._len are plain ints now, and Cerebro.optstrategy stores its
+    parameter combinations as a list rather than the itertools.product
+    iterator. Materializing that list costs nothing - product() already
+    consumed its inputs when it was built - and it fixes a second defect:
+    the iterator was single-use, so a second run() on an optimizing cerebro
+    saw it exhausted.
+
+  FIXES
+  - backtrader/strategy.py carried a corrupt shebang (`#!/usr/bin389/env
+    python`). Harmless, since the module is imported rather than executed,
+    but it was the only such line in the tree.
+
+  TOOLING
+  - tools/benchmark.py measures where the engine spends its time: engine
+    phases, per-indicator cost in both execution modes, cProfile of the hot
+    path, and import cost. Offline and deterministic - it reads only the
+    tracked fixtures in datas/. A performance claim here needs a number and
+    the command that produced it; this is that command.
+
+  DOCUMENTATION
+  - The conda environment is named `backtrader`, not `slim-backtrader`, which
+    is the distribution name. environment.yml declared the wrong one, so
+    `conda env create -f environment.yml` built an env that none of the
+    documented `conda activate` lines matched. CLAUDE.md, README.md,
+    reports/TESTING_SUITE.md and environment.yml now agree.
+
 2.0.1: 2026-08-23
   LICENSING
   - Restored the GPLv3 header block in backtrader/brokers/__init__.py,

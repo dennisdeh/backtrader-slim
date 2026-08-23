@@ -25,8 +25,10 @@
 
 import datetime
 import collections
+import concurrent.futures
 import itertools
-import multiprocessing
+import os
+import pickle
 
 try:  # For new Python versions
     collectionsAbc = collections.abc  # collections.Iterable -> collections.abc.Iterable
@@ -45,6 +47,12 @@ from .utils import OrderedDict, tzparse, num2date, date2num
 from .strategy import Strategy, SignalStrategy
 from .tradingcal import TradingCalendarBase, TradingCalendar, PandasMarketCalendar
 from .timer import Timer
+
+# The pools an optimization can be spread over; see Cerebro's ``executor``.
+_EXECUTORS = {
+    "process": concurrent.futures.ProcessPoolExecutor,
+    "thread": concurrent.futures.ThreadPoolExecutor,
+}
 
 # Defined here to make it pickable. Ideally it could be defined inside Cerebro
 
@@ -84,6 +92,25 @@ class Cerebro(metaclass=MetaParams):
     - ``maxcpus`` (default: None -> all available cores)
 
        How many cores to use simultaneously for optimization
+
+    - ``executor`` (default: ``'process'``)
+
+      Which :mod:`concurrent.futures` pool runs an optimization when
+      ``maxcpus`` allows more than one worker.
+
+      - ``'process'``: a ``ProcessPoolExecutor``. Each parameter combination
+        runs in its own interpreter, so optimization actually uses every core.
+        ``cerebro`` and everything reachable from it must be picklable, which
+        means strategies, indicators and analyzers have to be importable
+        module-level classes - not closures or classes defined inside a
+        function.
+
+      - ``'thread'``: a ``ThreadPoolExecutor``. Every worker gets a private
+        copy of ``cerebro`` (made through the same pickle contract the process
+        pool uses), so results are identical to the process pool. On a
+        GIL-carrying interpreter this will *not* speed up optimization, which
+        is CPU-bound Python; it is here for free-threaded builds and for
+        debugging, where a single address space is far easier to work with.
 
     - ``stdstats`` (default: ``True``)
 
@@ -274,6 +301,7 @@ class Cerebro(metaclass=MetaParams):
         ("preload", True),
         ("runonce", True),
         ("maxcpus", None),
+        ("executor", "process"),
         ("stdstats", True),
         ("oldbuysell", False),
         ("oldtrades", False),
@@ -314,7 +342,9 @@ class Cerebro(metaclass=MetaParams):
         self._signal_concurrent = False
         self._signal_accumulate = False
 
-        self._dataid = itertools.count(1)
+        # A plain int, not itertools.count: optimization pickles the cerebro to
+        # its workers, and itertools objects lose pickle support in Python 3.14
+        self._dataid = 0
 
         self._broker = BackBroker()
         self._broker.cerebro = self
@@ -795,7 +825,8 @@ class Cerebro(metaclass=MetaParams):
         if name is not None:
             data._name = name
 
-        data._id = next(self._dataid)
+        self._dataid += 1
+        data._id = self._dataid
         data.setenvironment(self)
 
         self.datas.append(data)
@@ -939,7 +970,12 @@ class Cerebro(metaclass=MetaParams):
         optkwargs = map(dict, okwargs1)
 
         it = itertools.product([strategy], optargs, optkwargs)
-        self.strats.append(it)
+        # Materialized, matching what addstrategy() appends. product() already
+        # consumes its inputs when it is built, so nothing lazy survives run()
+        # anyway; keeping the iterator only made the cerebro unpicklable (which
+        # optimization needs, and which itertools drops in Python 3.14) and the
+        # combinations single-use, so a second run() saw an exhausted iterator.
+        self.strats.append(list(it))
 
     def addstrategy(self, strategy, *args, **kwargs):
         """
@@ -1058,12 +1094,36 @@ class Cerebro(metaclass=MetaParams):
 
     def __call__(self, iterstrat):
         """
-        Used during optimization to pass the cerebro over the multiprocesing
-        module without complains
+        Used during optimization to pass the cerebro over the executor
+        without complains
         """
 
         predata = self.p.optdatas and self._dopreload and self._dorunonce
         return self.runstrategies(iterstrat, predata=predata)
+
+    def _optexecutor(self):
+        """The pool that runs an optimization, as chosen by ``executor``."""
+        # ThreadPoolExecutor's own default is sized for I/O-bound work;
+        # optimization is not, so both pools get one worker per core.
+        workers = self.p.maxcpus or os.cpu_count()
+        return _EXECUTORS[self.p.executor](max_workers=workers)
+
+    def _optrunner(self):
+        """The callable a worker applies to one parameter combination.
+
+        ``runstrategies`` writes ``runningstrats``, ``stcount`` and the broker
+        onto ``self``. The process pool hides that: it pickles the cerebro once
+        per task, so every worker mutates a copy of its own. Threads share one
+        address space and would otherwise all drive the *same* cerebro, so the
+        thread path recreates that isolation explicitly - through the very
+        ``__getstate__`` contract the pickling already relies on, which is what
+        makes both pools return the same results.
+        """
+        if self.p.executor == "thread":
+            snapshot = pickle.dumps(self)
+            return lambda iterstrat: pickle.loads(snapshot)(iterstrat)
+
+        return self
 
     def __getstate__(self):
         """
@@ -1105,6 +1165,15 @@ class Cerebro(metaclass=MetaParams):
         for key, val in kwargs.items():
             if key in pkeys:
                 setattr(self.params, key, val)
+
+        # Caught here rather than where the pool is built, so a typo fails the
+        # same way whether or not maxcpus happens to allow more than one worker
+        if self.p.executor not in _EXECUTORS:
+            raise ValueError(
+                "executor must be one of {}, got {!r}".format(
+                    sorted(_EXECUTORS), self.p.executor
+                )
+            )
 
         # Manage activate/deactivate object cache
         linebuffer.LineActions.cleancache()  # clean cache
@@ -1200,13 +1269,14 @@ class Cerebro(metaclass=MetaParams):
                     if self._dopreload:
                         data.preload()
 
-            pool = multiprocessing.Pool(self.p.maxcpus or None)
-            for r in pool.imap(self, iterstrats):
-                self.runstrats.append(r)
-                for cb in self.optcbs:
-                    cb(r)  # callback receives finished strategy
-
-            pool.close()
+            # ``executor.map`` yields in submission order, which is what
+            # ``Pool.imap`` guaranteed before it; optimization callbacks and
+            # the returned list stay in parameter order.
+            with self._optexecutor() as executor:
+                for r in executor.map(self._optrunner(), iterstrats):
+                    self.runstrats.append(r)
+                    for cb in self.optcbs:
+                        cb(r)  # callback receives finished strategy
 
             if self.p.optdatas and self._dopreload and self._dorunonce:
                 for data in self.datas:
@@ -1219,10 +1289,12 @@ class Cerebro(metaclass=MetaParams):
         return self.runstrats
 
     def _init_stcount(self):
-        self.stcount = itertools.count(0)
+        self.stcount = 0
 
     def _next_stid(self):
-        return next(self.stcount)
+        stid = self.stcount
+        self.stcount += 1
+        return stid
 
     def runstrategies(self, iterstrat, predata=False):
         """

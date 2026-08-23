@@ -26,6 +26,63 @@
 from collections import OrderedDict
 import itertools
 import sys
+import threading
+
+
+class ObjectCache:
+    """The construction cache behind ``Cerebro``'s ``objcache`` parameter.
+
+    ``MetaIndicator`` and ``MetaLineActions`` both hand every construction
+    through one of these, so that repeating an identical expression inside a
+    strategy reuses the object instead of building a second one.
+
+    The state is **thread-local**. ``cerebro.run()`` clears the cache and
+    switches it on or off on every call, and the cache lives on a metaclass -
+    process-wide by nature. Were it shared, two cerebros running in different
+    threads would clear each other's entries mid-run, and one built with
+    ``objcache=True`` would hand its indicator instances to the other. Keeping
+    the storage per-thread means a run only ever sees what its own thread put
+    there, at no cost to the single-threaded case.
+    """
+
+    def __init__(self):
+        self._local = threading.local()
+
+    @property
+    def enabled(self):
+        return getattr(self._local, "enabled", False)
+
+    def enable(self, onoff):
+        self._local.enabled = onoff
+
+    def clear(self):
+        self._local.entries = {}
+
+    def _entries(self):
+        try:
+            return self._local.entries
+        except AttributeError:  # first use in this thread
+            self._local.entries = {}
+            return self._local.entries
+
+    def obtain(self, build, cls, args, kwargs):
+        """Return the object for this call, building it through *build* if the
+        cache is off, the arguments are unhashable, or it has not been seen.
+        """
+        if not self.enabled:
+            return build()
+
+        ckey = (cls, tuple(args), tuple(kwargs.items()))
+        try:
+            hash(ckey)
+        except TypeError:  # an argument is unhashable -> not cacheable
+            return build()
+
+        entries = self._entries()
+        try:
+            return entries[ckey]
+        except KeyError:
+            return entries.setdefault(ckey, build())
 
 
 def findbases(kls, topclass):

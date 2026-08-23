@@ -41,6 +41,7 @@ import math
 
 
 from .lineroot import LineRoot, LineSingle, LineMultiple
+from .metabase import ObjectCache
 from .utils import num2date, time2num
 
 NAN = float("NaN")
@@ -506,32 +507,23 @@ class MetaLineActions(LineBuffer.__class__):
     been found in the base Metaclass for LineRoot)
     """
 
-    _acache = dict()
-    _acacheuse = False
+    _objcache = ObjectCache()
 
     @classmethod
     def cleancache(cls):
-        cls._acache = dict()
+        cls._objcache.clear()
 
     @classmethod
     def usecache(cls, onoff):
-        cls._acacheuse = onoff
+        cls._objcache.enable(onoff)
 
     def __call__(cls, *args, **kwargs):
-        if not cls._acacheuse:
-            return super(MetaLineActions, cls).__call__(*args, **kwargs)
-
-        # implement a cache to avoid duplicating lines actions
-        ckey = (cls, tuple(args), tuple(kwargs.items()))  # tuples hashable
-        try:
-            return cls._acache[ckey]
-        except TypeError:  # something not hashable
-            return super(MetaLineActions, cls).__call__(*args, **kwargs)
-        except KeyError:
-            pass  # hashable but not in the cache
-
-        _obj = super(MetaLineActions, cls).__call__(*args, **kwargs)
-        return cls._acache.setdefault(ckey, _obj)
+        return MetaLineActions._objcache.obtain(
+            lambda: super(MetaLineActions, cls).__call__(*args, **kwargs),
+            cls,
+            args,
+            kwargs,
+        )
 
     def dopreinit(cls, _obj, *args, **kwargs):
         _obj, args, kwargs = super(MetaLineActions, cls).dopreinit(

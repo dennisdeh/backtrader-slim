@@ -1,4 +1,4 @@
-#!/usr/bin389/env python
+#!/usr/bin/env python
 # -*- coding: utf-8; py-indent-offset:4 -*-
 ###############################################################################
 #
@@ -85,7 +85,10 @@ class MetaStrategy(StrategyBase.__class__):
 
         _obj.stats = _obj.observers = ItemCollection()
         _obj.analyzers = ItemCollection()
-        _obj._alnames = collections.defaultdict(itertools.count)
+        # Plain ints, not itertools.count: an optimization with optreturn=False
+        # pickles finished strategies back from its workers, and itertools
+        # objects lose pickle support in Python 3.14
+        _obj._alnames = collections.defaultdict(int)
         _obj.writers = list()
 
         _obj._slave_analyzers = list()
@@ -239,7 +242,8 @@ class Strategy(StrategyBase, metaclass=MetaStrategy):
 
     def _addanalyzer(self, ancls, *anargs, **ankwargs):
         anname = ankwargs.pop("_name", "") or ancls.__name__.lower()
-        nsuffix = next(self._alnames[anname])
+        nsuffix = self._alnames[anname]
+        self._alnames[anname] += 1
         anname += str(nsuffix or "")  # 0 (first instance) gets no suffix
         analyzer = ancls(*anargs, **ankwargs)
         self.analyzers.append(analyzer, anname)

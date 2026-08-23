@@ -26,43 +26,34 @@
 
 from .lineiterator import LineIterator, IndicatorBase
 from .lineseries import LineSeriesMaker, Lines
-from .metabase import AutoInfoClass
+from .metabase import AutoInfoClass, ObjectCache
 
 
 class MetaIndicator(IndicatorBase.__class__):
     _refname = "_indcol"
     _indcol = dict()
 
-    _icache = dict()
-    _icacheuse = False
+    _objcache = ObjectCache()
 
     @classmethod
     def cleancache(cls):
-        cls._icache = dict()
+        cls._objcache.clear()
 
     @classmethod
     def usecache(cls, onoff):
-        cls._icacheuse = onoff
+        cls._objcache.enable(onoff)
 
     # Object cache deactivated on 2016-08-17. If the object is being used
     # inside another object, the minperiod information carried over
     # influences the first usage when being modified during the 2nd usage
 
     def __call__(cls, *args, **kwargs):
-        if not cls._icacheuse:
-            return super(MetaIndicator, cls).__call__(*args, **kwargs)
-
-        # implement a cache to avoid duplicating lines actions
-        ckey = (cls, tuple(args), tuple(kwargs.items()))  # tuples hashable
-        try:
-            return cls._icache[ckey]
-        except TypeError:  # something not hashable
-            return super(MetaIndicator, cls).__call__(*args, **kwargs)
-        except KeyError:
-            pass  # hashable but not in the cache
-
-        _obj = super(MetaIndicator, cls).__call__(*args, **kwargs)
-        return cls._icache.setdefault(ckey, _obj)
+        return MetaIndicator._objcache.obtain(
+            lambda: super(MetaIndicator, cls).__call__(*args, **kwargs),
+            cls,
+            args,
+            kwargs,
+        )
 
     def __init__(cls, name, bases, dct):
         """
