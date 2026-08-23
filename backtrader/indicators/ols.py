@@ -26,6 +26,43 @@
 import backtrader as bt
 from . import PeriodN
 
+# pandas and statsmodels are optional: `import backtrader` must not require
+# either, so both are imported on first use. The names are declared here rather
+# than left to the metaclass `packages`/`frompackages` directives, which
+# injected them into this module's globals from outside - and into every base
+# class's module besides. What next() refers to is now visible to a reader, and
+# to a static checker, which reported all three as undefined and so could not
+# see a genuine mistake anywhere in this file.
+pd = None
+sm = None
+coint = None
+
+
+def _importpandas():
+    global pd
+    try:
+        import pandas as pd
+    except ImportError:
+        raise ImportError(
+            "this indicator needs pandas, which is not installed: "
+            'pip install "slim-backtrader[pandas]"'
+        ) from None
+
+
+def _importstatsmodels(api=False):
+    global sm, coint
+    try:
+        if api:
+            import statsmodels.api as sm
+        else:
+            from statsmodels.tsa.stattools import coint
+    except ImportError:
+        raise ImportError(
+            "this indicator needs statsmodels, which is not installed: "
+            "pip install statsmodels"
+        ) from None
+
+
 __all__ = ["OLS_Slope_InterceptN", "OLS_TransformationN", "OLS_BetaN", "CointN"]
 
 
@@ -39,15 +76,16 @@ class OLS_Slope_InterceptN(PeriodN):
 
     _mindatas = 2  # ensure at least 2 data feeds are passed
 
-    packages = (
-        ("pandas", "pd"),
-        ("statsmodels.api", "sm"),
-    )
     lines = (
         "slope",
         "intercept",
     )
     params = (("period", 10),)
+
+    def __init__(self):
+        super(OLS_Slope_InterceptN, self).__init__()
+        _importpandas()
+        _importstatsmodels(api=True)
 
     def next(self):
         p0 = pd.Series(self.data0.get(size=self.p.period))
@@ -95,10 +133,12 @@ class OLS_BetaN(PeriodN):
 
     _mindatas = 2  # ensure at least 2 data feeds are passed
 
-    packages = (("pandas", "pd"),)
-
     lines = ("beta",)
     params = (("period", 10),)
+
+    def __init__(self):
+        super(OLS_BetaN, self).__init__()
+        _importpandas()
 
     def next(self):
         y, x = (pd.Series(d.get(size=self.p.period)) for d in self.datas)
@@ -116,9 +156,6 @@ class CointN(PeriodN):
 
     _mindatas = 2  # ensure at least 2 data feeds are passed
 
-    packages = (("pandas", "pd"),)  # import pandas as pd
-    frompackages = (("statsmodels.tsa.stattools", "coint"),)  # from st... import coint
-
     lines = (
         "score",
         "pvalue",
@@ -127,6 +164,11 @@ class CointN(PeriodN):
         ("period", 10),
         ("trend", "c"),  # see statsmodel.tsa.statttools
     )
+
+    def __init__(self):
+        super(CointN, self).__init__()
+        _importpandas()
+        _importstatsmodels()
 
     def next(self):
         x, y = (pd.Series(d.get(size=self.p.period)) for d in self.datas)

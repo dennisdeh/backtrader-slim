@@ -134,6 +134,26 @@ UNRELEASED
     timeframes - intraday data is untouched. API break: daily PandasData
     timestamps move from midnight to sessionend.
 
+  STATIC ANALYSIS
+  - No module under backtrader/ uses the metaclass `packages`/`frompackages`
+    directives any more. They import a package when an object is constructed
+    and setattr the names into the defining module's globals - and into every
+    base class's module besides - so pyflakes reported 19 undefined names
+    across hurst.py, ols.py and calmar.py and could not have seen a genuine
+    mistake anywhere in those files either. Now 1, and that one is an alias in
+    an __all__.
+    calmar.py asked for `collections` and `math`, which are stdlib and had no
+    optionality to preserve; they are plain imports. hurst.py (numpy) and
+    ols.py (pandas, statsmodels) declare the names at module level and bind
+    them from a small helper called in __init__, so the import still happens
+    on first construction and now raises a message naming the package and how
+    to install it. `import backtrader` still pulls in nothing third-party -
+    tests/test_metaclass.py checks that in a fresh interpreter, and fails if
+    any module declares the directive again.
+    The mechanism itself is kept: it is a documented extension point and
+    tests/test_metaclass.py still exercises it.
+  - pyflakes is a dev dependency, so the check above can run.
+
   MODERNIZATION
   - The last Python 2 shims are gone. cerebro.py and writer.py both carried
     a try/except around collections.abc; both call sites use
@@ -141,7 +161,7 @@ UNRELEASED
     back to time.clock, removed from Python in 3.8, on a bare except.
 
   TESTS
-  - 259 -> 429 tests, 47.9s -> 48.2s. Coverage 73% -> 76% of statements,
+  - 259 -> 434 tests, 47.9s -> 50.7s. Coverage 73% -> 76% of statements,
     69% -> 72% counting branches; store.py 33% -> 73%, feed.py 69% -> 73%.
     tests/test_concurrency.py and tests/test_chaos.py are new; the additions
     to test_position.py, test_trade.py and test_filters_sizers.py went into

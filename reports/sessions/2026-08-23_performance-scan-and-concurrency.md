@@ -271,21 +271,54 @@ pandas feeds apply the house convention now. Only a bar with *no time of day at
 all* is moved, and only for daily or coarser timeframes: intraday data, where
 midnight is a real time rather than a missing one, is untouched.
 
+### And the unpinned one
+
+**`frompackages` defeated static analysis.** The reason it had been left alone
+was that importing the names normally would make numpy and statsmodels hard
+dependencies of a package whose `dependencies` list is deliberately empty. True
+— but that is an argument against *module-level* imports, not against visible
+ones. Each module now declares the names it needs at module level and binds
+them in a small helper called from `__init__`: the import still happens on
+first construction, and now says which package is missing and how to install
+it. `calmar.py` turned out to be asking for `collections` and `math` — stdlib,
+with no optionality to preserve at all.
+
+pyflakes over the three modules: **19 undefined names → 1**, and the one left
+is an alias in an `__all__`.
+
+The invariant is now checked instead of trusted: a test runs `import
+backtrader` in a fresh interpreter and fails if numpy, pandas, statsmodels,
+matplotlib or requests arrives with it, and pins that numpy shows up exactly
+when a `HurstExponent` is built. Another fails if any module declares the
+directive again. The mechanism itself stays — it is a documented extension
+point, and `test_metaclass.py` still exercises it.
+
+The original entry also listed `factorial` among the injected names. It is not
+in `backtrader/` at all — it is in `tests/testcommon.py`, which uses the
+directive on purpose in order to test it.
+
 ### What is left
 
-One item, and it is not pinned: **`frompackages` defeats static analysis**. The
-obvious fix — import the names normally — would make numpy and statsmodels hard
-dependencies of a package whose `dependencies` list is deliberately empty.
-`frompackages` exists precisely so those imports happen at class-creation time
-and fail with a clear message when the package is absent. Making `ols.py`,
-`hurst.py` and `calmar.py` legible to pyflakes without that regression needs a
-different mechanism, not an edit.
+One item, newly filed, and it is the residue of the above: **the `alias`
+directive is invisible to a static checker too**. Aliases are made by the
+metaclass, so pyflakes reports `TR` in `atr.py`, `ROC` in `momentum.py` and
+`RSI` three times in `rsi.py`.
+
+The obvious fix — substitute the canonical class name — is wrong, and worth
+recording as wrong. An alias is *not* the same object: `RSI.__mro__` is
+`RSI -> RelativeStrengthIndex`, and `RSI_SMA` inherits from `RSI`. Rewriting
+`class RSI_SMA(RSI)` would silently change the class hierarchy. CLAUDE.md
+already warns that aliases are public API; this is what that warning is for.
+
+Five undefined names in three lines, all the same understood pattern, is a
+different thing from nineteen spread through three modules hiding whatever else
+was wrong in them.
 
 ---
 
 ## Tests and coverage
 
-259 → **429 passed**, 1 skipped, 48.2 s — and no `xfail`s left, because
+259 → **434 passed**, 1 skipped, 50.7 s — and no `xfail`s left, because
 every defect they guarded is fixed.
 Coverage 73% → **76% of statements**, 69% → **72%** counting branches.
 `store.py` 33% → 73%, `feed.py` 69% → 73%.

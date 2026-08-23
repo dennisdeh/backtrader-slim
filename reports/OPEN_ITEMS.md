@@ -8,25 +8,62 @@ move out of this file; things that turn out to be deliberate move to
 
 ## Open
 
-### `frompackages` defeats static analysis
+### The `alias` directive is still invisible to a static checker
 
-*Found 2026-08-22.* The metaclass injects names (`pd`, `sm`, `coint`,
-`asarray`, `factorial`) into class bodies at creation time, so pyflakes reports
-them as undefined and cannot see genuine mistakes in those files. `ols.py`,
-`hurst.py` and `calmar.py` are affected.
+*Found 2026-08-23, as the residue of the `frompackages` item below.* Aliases
+are made by the metaclass and `setattr` into the defining module, so pyflakes
+reports 5 undefined names — `TR` in `atr.py`, `ROC` in `momentum.py`, `RSI`
+three times in `rsi.py` — plus 10 alias entries in an `__all__`.
 
-*Impact:* the static check that caught a real break during the Python 2 sweep
-is blind in exactly those modules.
+**Do not "fix" these by substituting the canonical class name.** An alias is
+not the same object: `RSI.__mro__` is `RSI -> RelativeStrengthIndex`, and
+`RSI_SMA` inherits from `RSI`, not from `RelativeStrengthIndex`. Rewriting
+`class RSI_SMA(RSI)` would silently change the class hierarchy. CLAUDE.md
+already states that aliases are public API and that renaming a class removes
+names from `bt.indicators` with no import error to show for it.
 
-*Why it is still open (reviewed 2026-08-23):* the obvious fix - import the
-names normally at module level - would make numpy and statsmodels hard
-dependencies of a package whose `dependencies` list is deliberately empty.
-`frompackages` exists precisely so those imports happen at class-creation time
-and fail with a clear message when the package is absent. Making the modules
-legible to pyflakes without that regression needs a different mechanism, not a
-one-line change, which is why this is the one finding of the set left standing.
+*Impact:* far smaller than what it replaces. Nineteen undefined names across
+three modules hid anything else those files got wrong; five, all of them the
+same well-understood pattern in three lines of code, do not.
 
 ## Fixed after 2.0.1
+
+### `frompackages` defeated static analysis
+
+*Found 2026-08-22, fixed 2026-08-23.* `packages` and `frompackages` import a
+package when an object is constructed and `setattr` the names into the defining
+module's globals — and into every base class's module besides. Names a reader
+cannot see are names a checker cannot check: pyflakes reported **19 undefined
+names** across `hurst.py`, `ols.py` and `calmar.py`, so it could not have seen
+a genuine mistake anywhere in those files either.
+
+All three now import what they use, visibly, at the point of use:
+
+- `calmar.py` asked for `collections` and `math` — **stdlib**, with no
+  optionality to preserve. Plain module-level imports.
+- `hurst.py` (numpy) and `ols.py` (pandas, statsmodels) declare the names at
+  module level and bind them in a small `_import*()` helper called from
+  `__init__`, so the import still happens on first construction and raises a
+  message naming the package and how to install it.
+
+The count is **19 → 1**, and the one left is an alias in an `__all__`, listed
+under *Open* above.
+
+The invariant this protects is checked rather than asserted:
+`TestNothingOptionalIsImportedEagerly` runs `import backtrader` in a fresh
+interpreter and fails if numpy, pandas, statsmodels, matplotlib or requests
+comes with it, and pins that numpy arrives exactly when a `HurstExponent` is
+built. `TestInjectedNamesAreGone` fails if any module under `backtrader/`
+declares the directive again, and runs pyflakes over the three.
+
+The mechanism itself is kept — it is a documented extension point, and
+`tests/test_metaclass.py::test_run` still exercises it through
+`testcommon.SampleParamsHolder`. Nothing in the library uses it.
+
+*Correction:* the original entry listed `factorial` among the injected names.
+It is not in `backtrader/` at all; it is in `tests/testcommon.py`, which uses
+the directive deliberately to test it.
+
 
 ### `DataFilter` delivered every bar twice when preloading
 

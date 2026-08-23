@@ -22,6 +22,17 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #
 ###############################################################################
+import ast
+import io
+import pathlib
+import re
+import subprocess
+import sys
+
+import pytest
+
+import backtrader
+
 import testcommon
 
 
@@ -46,6 +57,102 @@ def test_run(main=False):
     https://community.backtrader.com/topic/2661/frompackages-directive-functionality-seems-to-be-broken-when-using-inheritance
     """
     test = TestFrompackages()
+
+
+class TestNothingOptionalIsImportedEagerly:
+    """`import backtrader` must not drag in a third-party package.
+
+    The engine declares no runtime dependencies, and the optional integrations
+    keep that true by importing their package on first use. This has to run in
+    a fresh interpreter: by the time the suite gets here, other tests have
+    already put numpy, pandas and matplotlib in ``sys.modules``.
+    """
+
+    OPTIONAL = ["numpy", "pandas", "statsmodels", "matplotlib", "requests"]
+
+    def imported_after(self, statement):
+        code = (
+            "import sys\n"
+            f"{statement}\n"
+            f"print([m for m in {self.OPTIONAL!r} if m in sys.modules])"
+        )
+        out = subprocess.run(
+            [sys.executable, "-c", code],
+            capture_output=True,
+            text=True,
+            check=True,
+            cwd=pathlib.Path(__file__).resolve().parent.parent,
+        )
+        return ast.literal_eval(out.stdout.strip())
+
+    def test_importing_backtrader_pulls_in_nothing_optional(self):
+        assert self.imported_after("import backtrader") == []
+
+    def test_importing_the_indicators_pulls_in_nothing_optional(self):
+        assert self.imported_after("import backtrader.indicators") == []
+
+    def test_numpy_arrives_only_when_hurst_is_built(self):
+        statement = (
+            "import backtrader as bt\n"
+            "c = bt.Cerebro(stdstats=False)\n"
+            "c.adddata(bt.feeds.BacktraderCSVData("
+            "dataname='datas/2006-day-001.txt'))\n"
+            "class S(bt.Strategy):\n"
+            "    def __init__(self):\n"
+            "        bt.indicators.HurstExponent(self.data)\n"
+            "c.addstrategy(S)\n"
+            "c.run()"
+        )
+        assert self.imported_after(statement) == ["numpy"]
+
+
+class TestInjectedNamesAreGone:
+    """The library's own modules no longer rely on metaclass-injected names.
+
+    ``packages``/``frompackages`` import a package at construction time and
+    ``setattr`` the names into the defining module's globals - and into every
+    base class's module besides. The mechanism still works, and
+    ``TestFrompackages`` above still exercises it, but nothing under
+    ``backtrader/`` uses it: names a reader cannot see are names a static
+    checker cannot check, and pyflakes reported 19 undefined names across the
+    three modules that did.
+    """
+
+    MODULES = [
+        "indicators/hurst.py",
+        "indicators/ols.py",
+        "analyzers/calmar.py",
+    ]
+
+    def root(self):
+        return pathlib.Path(backtrader.__file__).parent
+
+    def test_no_module_declares_packages_or_frompackages(self):
+        offenders = []
+        for path in sorted(self.root().rglob("*.py")):
+            if path.name == "metabase.py":
+                continue  # implements the directive rather than using it
+            for number, line in enumerate(path.read_text().splitlines(), 1):
+                if re.match(r"\s*(from)?packages\s*=", line):
+                    offenders.append(f"{path.name}:{number}")
+        assert not offenders, "injected imports in:\n  " + "\n  ".join(offenders)
+
+    def test_pyflakes_sees_no_undefined_names(self):
+        pytest.importorskip("pyflakes")
+        reporter = pytest.importorskip("pyflakes.reporter")
+        api = pytest.importorskip("pyflakes.api")
+
+        problems = []
+        for relative in self.MODULES:
+            out, err = io.StringIO(), io.StringIO()
+            api.checkPath(str(self.root() / relative), reporter.Reporter(out, err))
+            for line in out.getvalue().splitlines():
+                # aliases are made by the metaclass too, and are public API -
+                # see CLAUDE.md - so `Hurst` in __all__ stays unresolvable
+                if "in __all__" not in line:
+                    problems.append(line)
+
+        assert not problems, "\n".join(problems)
 
 
 if __name__ == "__main__":

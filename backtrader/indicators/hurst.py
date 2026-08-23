@@ -27,6 +27,25 @@ from . import PeriodN
 
 __all__ = ["HurstExponent", "Hurst"]
 
+# numpy is optional: `import backtrader` must not require it, so it is imported
+# on first use. The names are declared here rather than left to the metaclass
+# `frompackages` directive, which injected them into this module's globals from
+# outside - and into every base class's module besides. What next() refers to is
+# now visible to a reader, and to a static checker, which reported all six as
+# undefined and so could not see a genuine mistake anywhere in this file.
+asarray = log10 = polyfit = sqrt = std = subtract = None
+
+
+def _importnumpy():
+    """Bind the numpy names used below. Called on first construction."""
+    global asarray, log10, polyfit, sqrt, std, subtract
+    try:
+        from numpy import asarray, log10, polyfit, sqrt, std, subtract
+    except ImportError:
+        raise ImportError(
+            "HurstExponent needs numpy, which is not installed: pip install numpy"
+        ) from None
+
 
 class HurstExponent(PeriodN):
     """
@@ -58,10 +77,6 @@ class HurstExponent(PeriodN):
 
     """
 
-    frompackages = (
-        ("numpy", ("asarray", "log10", "polyfit", "sqrt", "std", "subtract")),
-    )
-
     alias = ("Hurst",)
     lines = ("hurst",)
     params = (
@@ -78,6 +93,7 @@ class HurstExponent(PeriodN):
 
     def __init__(self):
         super(HurstExponent, self).__init__()
+        _importnumpy()
         # Prepare the lags array
         self._lag_start = lag_start = self.p.lag_start or 2
         self._lag_end = lag_end = self.p.lag_end or (self.p.period // 2)

@@ -8,7 +8,7 @@ What is tested, how it is selected, and what it costs.
 
 ```shell
 conda activate backtrader
-pytest                  # 429 tests, ~48 s
+pytest                  # 434 tests, ~50 s
 pytest --cov            # adds coverage, ~4 min
 pytest -m "not plotting"   # skip the two matplotlib rendering tests
 ```
@@ -31,7 +31,8 @@ and any `SyntaxWarning` into errors.
 | `test_resampling_intraday.py` | 18 | intraday resample/replay, trading calendar, PSAR, PivotPoint |
 | `test_feeds.py` | 18 | CSV family, PandasData, Chainer, RollOver |
 | `test_filters_sizers.py` | 42 | filters, sizers, fillers, commission schemes, bar splitters, data wrappers |
-| `test_strategy_*.py`, `test_writer.py`, `test_metaclass.py`, others | 11 | strategy runs, writer output, metaclass machinery |
+| `test_strategy_*.py`, `test_writer.py`, others | 10 | strategy runs, writer output |
+| `test_metaclass.py` | 6 | the `frompackages` directive, and that nothing optional is imported eagerly |
 | `test_licensing.py` | 5 | GPLv3 notices, upstream copyright, modification notices, LICENSE, README attribution |
 | `test_concurrency.py` | 21 | the optimization executors, `ObjectCache`, concurrent cerebros |
 | `test_position.py` | 26 | size/price arithmetic, every branch of `set` and `update` |
