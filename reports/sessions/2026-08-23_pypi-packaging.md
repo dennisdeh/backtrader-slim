@@ -118,9 +118,22 @@ https://pypi.org/project/slim-backtrader/2.0.1/
   which is the only kind that can create a project. The project exists now, so
   revoke it and mint one scoped to `slim-backtrader` alone. The token was also
   pasted into a chat transcript, which is a second reason.
-- **2.0.0 and 2.0.1 are spent.** PyPI refuses a re-upload of a version even
-  after its files are deleted. Corrections ship as a new version; bump
+- **2.0.0, 2.0.1 and 2.1.0 are spent.** PyPI refuses a re-upload of a version
+  even after its files are deleted. Corrections ship as a new version; bump
   `__version__` in `backtrader/version.py` and nothing else follows.
+  (2.1.0 was published on 2026-08-23 - see
+  `2026-08-23_performance-scan-and-concurrency.md`.)
+- **`~/.pypirc` has no `[testpypi]` section**, so the README's dry-run step
+  fails with `InvalidConfiguration` and the real upload runs straight after it
+  if both lines are pasted together. Either add the section - repository
+  `https://test.pypi.org/legacy/`, username `__token__`, and a TestPyPI token,
+  which is separate from the PyPI one - or drop the dry run from the runbook.
+- **The simple index lags the upload by a few minutes.** After 2.1.0 was
+  uploaded, `pip install` still reported "no matching distribution" while the
+  JSON API already listed it, because a CDN edge was serving a stale index. It
+  is not evidence of a failed upload. `curl -s -H "Accept:
+  application/vnd.pypi.simple.v1+json" https://pypi.org/simple/slim-backtrader/`
+  is the check, and it agrees with pip once the edge expires.
 - 2.0.0 remains on PyPI with the stripped headers. Yanking it would push users
   to 2.0.1 without breaking pinned installs, and is worth considering.
 - The release runbook is the README's *Releasing* section. Nothing is

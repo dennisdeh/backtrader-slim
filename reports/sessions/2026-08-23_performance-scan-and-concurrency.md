@@ -377,6 +377,30 @@ out to look for.
   in 3.8). CLAUDE.md authorizes deleting these on sight; they went in their own
   mechanical commit so as not to bury the behaviour changes.
 
+## Released as 2.1.0
+
+Published to PyPI on 2026-08-23: https://pypi.org/project/slim-backtrader/2.1.0/
+
+`__version__` in `backtrader/version.py` is the only string that matters -
+the wheel, the sdist, the metadata and `__btversion__` all derive from it.
+The number is 2.1.0 by decision; the README's own scheme would read five API
+breaks as a major bump, and that was raised and settled before upload.
+
+Verified against the live index rather than the local build: `pip install
+slim-backtrader==2.1.0` into an empty venv reports `2.1.0 / (2, 1, 0)`,
+resolves `Vortex` to `backtrader.indicators.vortex`, has `executor` on Cerebro
+and `checkorder` on the feeds, gives `PivotPoint` the lines
+`('pivot', 's1', 's2', 'r1', 'r2')`, and raises `ModuleNotFoundError` on
+`import backtrader.indicators.contrib` - the API break the changelog
+describes, confirmed in what users actually get.
+
+Two things cost time and are worth knowing next release, both recorded in
+`2026-08-23_pypi-packaging.md`: `~/.pypirc` has no `[testpypi]` section, so
+the dry-run step fails and the real upload runs anyway if both lines are
+pasted together; and the simple index lags the upload by a few minutes, so
+`pip` reporting "no matching distribution" straight afterwards is propagation,
+not failure.
+
 ## Where the suite's time goes
 
 `test_strategy_optimized.py::test_run` is **20.4 s of the 48 s suite** — 43%,
