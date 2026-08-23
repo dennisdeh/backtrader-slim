@@ -367,29 +367,108 @@ class TestDataWrappers:
         kept = bars(self.wrap(lambda d: True), preload=False)
         assert [b[1:] for b in kept] == [b[1:] for b in plain]
 
-    @pytest.mark.xfail(
-        reason="DataFilter delivers every bar twice under preload; "
-        "see reports/OPEN_ITEMS.md",
-        strict=True,
-    )
-    def test_data_filter_under_preload_does_not_duplicate_bars(self):
-        assert len(bars(self.wrap(lambda d: True), preload=True)) == 255
+    @pytest.mark.parametrize("preload", [True, False])
+    def test_data_filter_delivers_each_bar_once(self, preload):
+        """Preloading used to double every bar.
 
-    @pytest.mark.xfail(
-        reason="DataFiller reads the numeric sessionend where it needs the "
-        "datetime.time; see reports/OPEN_ITEMS.md",
-        strict=True,
-    )
-    def test_data_filler_inserts_the_missing_minutes(self):
-        def minutefeed():
-            return csvdata(
-                "2006-01-02-volume-min-001.txt",
-                fromdate=datetime.datetime(2006, 1, 2),
-                todate=datetime.datetime(2006, 1, 3),
-                timeframe=bt.TimeFrame.Minutes,
-                compression=1,
-            )
+        ``_load`` asked ``not len(dataname)`` to mean "not started yet", but
+        len() is also 0 right after ``home()`` rewinds a preloaded feed, so it
+        restarted the source, reopened the file it had just closed, and read
+        the whole thing a second time.
+        """
+        delivered = bars(self.wrap(lambda d: True), preload=preload)
+        assert len(delivered) == 255
+        assert len({bar[0] for bar in delivered}) == 255
 
-        plain = len(bars(minutefeed(), preload=False))
-        filled = bt.filters.DataFiller(dataname=minutefeed())
-        assert len(bars(filled, preload=False)) >= plain
+    def test_data_filter_agrees_with_itself_across_preload(self):
+        assert bars(self.wrap(lambda d: True), preload=True) == bars(
+            self.wrap(lambda d: True), preload=False
+        )
+
+
+class TestDataFiller:
+    """Gaps in an intraday feed are filled from the previous close.
+
+    The values below are checked against the documented rule rather than
+    recorded from the implementation: the feed carries 10:31 and 10:34 of one
+    session, so 10:32 and 10:33 are missing and must arrive priced at the
+    10:31 close, carrying the configured fill volume.
+    """
+
+    HEADER = "Date,Time,Open,High,Low,Close,Volume,OpenInterest\n"
+    ROWS = (
+        "2006-01-02,10:31:00,10.0,10.5,9.5,10.2,100,0\n"
+        "2006-01-02,10:34:00,11.0,11.5,10.5,11.2,200,0\n"
+    )
+
+    def minutefeed(self, tmp_path):
+        path = tmp_path / "gapped.txt"
+        path.write_text(self.HEADER + self.ROWS)
+        return bt.feeds.BacktraderCSVData(
+            dataname=str(path),
+            timeframe=bt.TimeFrame.Minutes,
+            compression=1,
+            sessionstart=datetime.time(10, 30),
+            sessionend=datetime.time(17, 0),
+        )
+
+    def delivered(self, data, **kwargs):
+        rows = []
+
+        class Recorder(bt.Strategy):
+            __test__ = False
+
+            def next(self):
+                d = self.data
+                rows.append(
+                    (
+                        d.datetime.datetime(0).strftime("%H:%M"),
+                        round(d.close[0], 2),
+                        d.volume[0],
+                    )
+                )
+
+        cerebro = bt.Cerebro(stdstats=False, preload=False)
+        cerebro.adddata(data)
+        cerebro.addstrategy(Recorder)
+        cerebro.run()
+        return rows
+
+    def test_the_raw_feed_has_the_gap(self, tmp_path):
+        assert [r[0] for r in self.delivered(self.minutefeed(tmp_path))] == [
+            "10:31",
+            "10:34",
+        ]
+
+    def test_the_missing_minutes_are_inserted(self, tmp_path):
+        filled = bt.filters.DataFiller(dataname=self.minutefeed(tmp_path))
+        assert [r[0] for r in self.delivered(filled)] == [
+            "10:31",
+            "10:32",
+            "10:33",
+            "10:34",
+        ]
+
+    def test_inserted_bars_carry_the_previous_close(self, tmp_path):
+        filled = bt.filters.DataFiller(dataname=self.minutefeed(tmp_path))
+        rows = self.delivered(filled)
+        assert rows[1][1] == 10.2  # the close of 10:31
+        assert rows[2][1] == 10.2
+
+    def test_real_bars_are_untouched(self, tmp_path):
+        filled = bt.filters.DataFiller(dataname=self.minutefeed(tmp_path))
+        rows = self.delivered(filled)
+        assert (rows[0][1], rows[0][2]) == (10.2, 100.0)
+        assert (rows[3][1], rows[3][2]) == (11.2, 200.0)
+
+    def test_inserted_bars_take_the_configured_volume(self, tmp_path):
+        filled = bt.filters.DataFiller(dataname=self.minutefeed(tmp_path), fill_vol=0.0)
+        assert self.delivered(filled)[1][2] == 0.0
+
+    def test_fill_price_overrides_the_previous_close(self, tmp_path):
+        filled = bt.filters.DataFiller(
+            dataname=self.minutefeed(tmp_path), fill_price=99.0
+        )
+        rows = self.delivered(filled)
+        assert rows[1][1] == 99.0
+        assert rows[3][1] == 11.2  # real bars keep their own price

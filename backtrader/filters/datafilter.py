@@ -55,10 +55,18 @@ class DataFilter(bt.AbstractDataBase):
         self.p.dataname.setenvironment(self._env)
         self.p.dataname._start()
 
+    def start(self):
+        super(DataFilter, self).start()
+        # Started here rather than lazily from _load(). _load() used to ask
+        # "not len(dataname)" to mean "not started yet", but len() is also 0
+        # immediately after home() rewinds a preloaded feed - so preloading
+        # restarted the source, reopened the file it had just closed, and
+        # delivered every bar a second time.
+        self._startinner()
+
     def preload(self):
         if len(self.p.dataname) == self.p.dataname.buflen():
             # if data is not preloaded .... do it
-            self._startinner()
             self.p.dataname.preload()
             self.p.dataname.home()
 
@@ -69,9 +77,6 @@ class DataFilter(bt.AbstractDataBase):
         super(DataFilter, self).preload()
 
     def _load(self):
-        if not len(self.p.dataname):
-            self._startinner()  # start data if not done somewhere else
-
         # Tell underlying source to get next data
         while self.p.dataname.next():
             # Try to load the data from the underlying source

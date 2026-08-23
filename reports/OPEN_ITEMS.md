@@ -8,101 +8,6 @@ move out of this file; things that turn out to be deliberate move to
 
 ## Open
 
-### `DataFilter` delivers every bar twice when preloading
-
-*Found 2026-08-23.* `bt.filters.DataFilter(dataname=feed, funcfilter=...)`
-returns 510 bars for the 255-bar 2006 daily fixture, each date appearing
-exactly twice. With `preload=False` it returns the correct 255.
-
-`DataFilter.preload()` starts and preloads the wrapped feed, rewinds it with
-`home()`, and then calls `super().preload()`, which walks it again through
-`_load()`. One of the two passes is redundant, but which one is meant to win
-is a design question, not an obvious edit.
-
-Pinned by `test_data_filter_under_preload_does_not_duplicate_bars`, a strict
-`xfail`, so a fix reports as an unexpected pass rather than going unnoticed.
-
-*Why it is not fixed here:* nothing in the tree used the class at all until
-2026-08-23, so there is no established behaviour to preserve, and picking a
-pass to drop needs a decision about what `preload` means for a wrapping feed.
-
-### `DataFiller` reads the numeric `sessionend` where it needs the time
-
-*Found 2026-08-23.* `DataFiller._load()` calls
-`datetime.combine(dtime_prev.date(), self.p.dataname.sessionend)` and raises
-`TypeError: combine() argument 2 must be datetime.time, not float`.
-
-On a started feed the two names differ: `p.sessionend` is the
-`datetime.time(23, 59, 59, 999990)` the user configured, while `sessionend` is
-the float date `_start_finish()` computed from it. The filler wants the former.
-
-Pinned by `test_data_filler_inserts_the_missing_minutes`, a strict `xfail`.
-
-*Why it is not fixed here:* the one-word change is obvious, but the class has
-never run, so what it should produce is unverified — it needs a golden case
-built by hand before its output can be trusted.
-
-### `Position.set` reports nothing opened when opening from flat
-
-*Found 2026-08-23.* Every branch of `Position.set` reports what the new size
-opened, except the one taken when the position is currently flat, which reads
-`self.upopened = self.size` — the *old* size, always 0 there — where its
-siblings say `size`. `Position.update` reports `opened == size` for the same
-transition, so the two disagree.
-
-Inert today: nothing outside `position.py` reads `upopened` or `upclosed`, and
-`set` is only ever called from `Position.__init__`. Reachable through the
-public `Position` API.
-
-Pinned by `test_setting_from_flat_reports_nothing_opened`, which asserts the
-current behaviour so that correcting it is a deliberate act with a changelog
-entry.
-
-### Two `Vortex` indicators exist, and the exported one is not the maintained one
-
-*Found 2026-08-23.* `backtrader/indicators/vortex.py` and
-`backtrader/indicators/contrib/vortex.py` define the same indicator with
-identical logic. `bt.indicators.Vortex` resolves to the **contrib** one, which
-`indicators/contrib/__init__.py` installs explicitly; the top-level module is
-imported by nothing, which is why it reports 0% coverage while
-`tests/test_ind_vortex.py` passes.
-
-The two differ only in formatting: the Black sweep of 2026-08-22 reached the
-top-level copy and skipped the contrib one, because `extend-exclude` matches
-any path containing `/contrib/`.
-
-*Impact:* `import backtrader.indicators.vortex` re-registers `Vortex` in
-`MetaIndicator._indcol`, so an innocuous-looking import silently swaps which
-class `btind.Vortex` names.
-
-*Why it is not fixed here:* deleting the duplicate is a one-line change, but
-which copy should survive — and whether `indicators/contrib/` should keep its
-Black exemption — is a layout decision.
-
-### PandasData and the CSV feeds stamp the same bar differently
-
-*Found 2026-08-22.* The CSV feeds stamp a daily bar at the session end
-(`23:59:59.999`); `PandasData` takes the DataFrame index verbatim, so the same
-session comes out at midnight. Feeding the same instrument from both sources
-into one Cerebro therefore misaligns them by a day, silently.
-
-Pinned, not fixed, by
-`test_pandas_bars_are_stamped_at_midnight_not_session_end` — the test asserts
-today's behaviour so a fix will show up as a failure rather than a surprise.
-
-*Why it is not fixed here:* changing either side alters the timestamps every
-existing strategy sees. It needs a deliberate decision about which convention
-wins.
-
-### `PivotPoint`'s pivot line is unreachable by its own name
-
-*Found 2026-08-22.* The indicator declares a line named `p`, but `.p` on every
-`LineIterator` is the params object, which shadows it. The line is only
-reachable as `.lines.p`. Any other line name would work; `p` is the one that
-collides.
-
-Pinned by `test_pivotpoint_needs_a_coarser_timeframe`.
-
 ### `frompackages` defeats static analysis
 
 *Found 2026-08-22.* The metaclass injects names (`pd`, `sm`, `coint`,
@@ -113,7 +18,90 @@ them as undefined and cannot see genuine mistakes in those files. `ols.py`,
 *Impact:* the static check that caught a real break during the Python 2 sweep
 is blind in exactly those modules.
 
+*Why it is still open (reviewed 2026-08-23):* the obvious fix - import the
+names normally at module level - would make numpy and statsmodels hard
+dependencies of a package whose `dependencies` list is deliberately empty.
+`frompackages` exists precisely so those imports happen at class-creation time
+and fail with a clear message when the package is absent. Making the modules
+legible to pyflakes without that regression needs a different mechanism, not a
+one-line change, which is why this is the one finding of the set left standing.
+
 ## Fixed after 2.0.1
+
+### `DataFilter` delivered every bar twice when preloading
+
+*Found and fixed 2026-08-23.* 510 bars for a 255-bar feed, each date twice.
+`_load` asked `not len(dataname)` to mean "not started yet", but `len()` is
+also 0 immediately after `home()` rewinds a preloaded feed - so preloading
+restarted the source, reopened the file it had just closed, and read the whole
+thing a second time. Both wrappers now start their inner feed from `start()`,
+which runs once per run and means what it says.
+
+The order check added the same day found this by itself: the duplicate run
+showed up as bar 256 dated 2006-01-02, after 2006-12-29.
+
+### `DataFiller` read the numeric `sessionend`
+
+*Found and fixed 2026-08-23.* `datetime.combine(date, self.p.dataname.sessionend)`
+raised `TypeError: combine() argument 2 must be datetime.time, not float`. On a
+started feed the bare name is the numeric session end `_start_finish()`
+computed; the `datetime.time` the user configured is `p.sessionend`. Both that
+and the matching `sessionstart` are fixed.
+
+Its output was then checked by hand rather than recorded from the code: given a
+feed carrying 10:31 and 10:34 of one session, the filler inserts 10:32 and
+10:33 priced at the 10:31 close, carrying the configured fill volume, and
+leaves the real bars alone. `fill_price` overrides the close for inserted bars
+only.
+
+### `Position.set` reported nothing opened when opening from flat
+
+*Found and fixed 2026-08-23.* The branch taken from a flat position read
+`self.upopened = self.size` - the *old* size, always 0 there - where every
+sibling branch, and `update()` for the same move, report the size opened.
+It reads `size` now, and a test asserts the two agree.
+
+### Two `Vortex` indicators existed, and the exported one was not the maintained one
+
+*Found and fixed 2026-08-23.* `backtrader/indicators/vortex.py` and
+`backtrader/indicators/contrib/vortex.py` held the same implementation.
+`bt.indicators.Vortex` resolved to the contrib one, so an innocuous
+`import backtrader.indicators.vortex` re-registered `Vortex` in
+`MetaIndicator._indcol` and silently swapped which class the name meant.
+
+The top-level module survives - it is the Black-formatted copy, and the contrib
+one carried a duplicated copyright line from the licence sweep. It is imported
+from `indicators/__init__.py` like every other indicator, and
+`backtrader/indicators/contrib/` is gone: `vortex.py` was all it held, so the
+package and the `import backtrader.indicators.contrib` line went with it.
+`backtrader/studies/contrib/` is untouched.
+
+### `PivotPoint`'s pivot line was unreachable by its own name
+
+*Found and fixed 2026-08-23.* The line was called `p`, and `.p` on every
+`LineIterator` is the params object. `LineSeries.__getattr__` is what forwards
+an unknown name to `.lines`, and it only runs when normal lookup *fails* - so
+the params instance attribute won, and the line could only be read as
+`.lines.p`.
+
+The line is `pivot` now, in `PivotPoint`, `FibonacciPivotPoint` and
+`DemarkPivotPoint`. `linealias = dict(pivot="p")` keeps `.lines.p` returning
+the same line object, so code using the only spelling that ever worked still
+works. `.p` remains the params object, as it must.
+
+### PandasData and the CSV feeds stamped the same bar differently
+
+*Found 2026-08-22, fixed 2026-08-23.* The CSV feeds stamp a daily bar at the
+session end; a DataFrame index carries a bare date, which lands on midnight.
+The same session came out a day apart depending on which feed loaded it, and
+feeding both into one cerebro misaligned them silently.
+
+`PandasData` and `PandasDirectData` now apply the session-end convention, so
+the two agree bar for bar. Only a bar with **no time of day at all** is moved,
+and only when the timeframe is daily or coarser: intraday data, where midnight
+is a real time rather than a missing one, is untouched. `sessionend` sets the
+time, as it does for every other feed.
+
 
 ### A feed could go back in time and nothing said anything
 

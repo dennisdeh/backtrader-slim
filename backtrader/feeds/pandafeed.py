@@ -24,8 +24,30 @@
 ###############################################################################
 
 
-from backtrader import date2num
+import datetime
+
+from backtrader import date2num, TimeFrame
 import backtrader.feed as feed
+
+
+def _stamp(data, tstamp):
+    """Turn a pandas timestamp into backtrader's float date.
+
+    A DataFrame index for daily data carries a bare date, which lands on
+    midnight - while every CSV feed in the library stamps a daily bar at the
+    session end. The same session loaded from a DataFrame and from a CSV
+    therefore carried timestamps a day apart, and feeding both into one
+    cerebro misaligned them silently.
+
+    Only a bar with no time of day at all is moved, and only when the
+    timeframe is daily or coarser: intraday data, where midnight is a real
+    time, is left exactly as it is.
+    """
+    dt = tstamp.to_pydatetime()
+    if data._timeframe >= TimeFrame.Days and dt.time() == datetime.time.min:
+        dt = datetime.datetime.combine(dt.date(), data.p.sessionend)
+
+    return date2num(dt)
 
 
 class PandasDirectData(feed.DataBase):
@@ -91,13 +113,9 @@ class PandasDirectData(feed.DataBase):
         colidx = getattr(self.params, "datetime")
         tstamp = row[colidx]
 
-        # convert to float via datetime and store it
-        dt = tstamp.to_pydatetime()
-        dtnum = date2num(dt)
-
         # get the line to be set
         line = getattr(self.lines, "datetime")
-        line[0] = dtnum
+        line[0] = _stamp(self, tstamp)
 
         # Done ... return
         return True
@@ -259,10 +277,7 @@ class PandasData(feed.DataBase):
             # it's in a different column ... use standard column index
             tstamp = self.p.dataname.iloc[self._idx, coldtime]
 
-        # convert to float via datetime and store it
-        dt = tstamp.to_pydatetime()
-        dtnum = date2num(dt)
-        self.lines.datetime[0] = dtnum
+        self.lines.datetime[0] = _stamp(self, tstamp)
 
         # Done ... return
         return True

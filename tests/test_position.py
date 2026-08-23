@@ -178,20 +178,26 @@ class TestSetOpenedAndClosed:
         _, _, opened, closed = pos.set(3, 11.0)
         assert (opened, closed) == (3, -10)
 
-    def test_setting_from_flat_reports_nothing_opened(self):
-        """Pins current behaviour, which looks wrong - see reports/OPEN_ITEMS.md.
-
-        Every other branch of ``set`` reports what it opened, and ``update``
-        reports ``opened == size`` when it opens from flat. This branch reads
-        ``self.upopened = self.size`` - the *old* size, always 0 here - where
-        its siblings would say ``size``. Nothing in the library reads
-        ``upopened`` outside ``Position`` itself, so the oddity is inert; the
-        assertion is here so that correcting it is a deliberate act with a
-        changelog entry, not an accident.
-        """
+    def test_setting_from_flat_opens_the_whole_size(self):
         pos = position.Position()
         _, _, opened, closed = pos.set(5, 11.0)
-        assert (opened, closed) == (0, 0)
+        assert (opened, closed) == (5, 0)
+
+    def test_setting_a_short_from_flat_opens_the_whole_size(self):
+        pos = position.Position()
+        _, _, opened, closed = pos.set(-5, 11.0)
+        assert (opened, closed) == (-5, 0)
+
+    def test_set_and_update_agree_on_opening_from_flat(self):
+        """The two used to disagree: ``set`` reported nothing opened.
+
+        It read ``self.upopened = self.size`` - the *old* size, always 0 in
+        that branch - where every sibling branch, and ``update`` for the very
+        same move, report the size that was opened.
+        """
+        by_set = position.Position().set(5, 11.0)[2]
+        by_update = position.Position().update(size=5, price=11.0)[2]
+        assert by_set == by_update == 5
 
 
 class TestUpdateFromShort:

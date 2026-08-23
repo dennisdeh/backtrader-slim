@@ -250,10 +250,13 @@ class TestPivotPoint:
         )
         cerebro.addstrategy(S)
         strat = cerebro.run()[0]
-        # NOTE: the pivot line is named `p`, but `.p` on any LineIterator is
-        # the params object - so the line is only reachable as `.lines.p`.
-        assert isinstance(strat.pp.p, object) and not hasattr(strat.pp.p, "__getitem__")
-        pivot = strat.pp.lines.p[0]
+        # The line is `pivot`. It used to be `p`, which no caller could reach:
+        # `.p` on every LineIterator is the params object and wins the lookup
+        # before LineSeries forwards the name to `.lines`. `.lines.p` is kept
+        # as an alias, so both spellings return the same line.
+        assert strat.pp.p is strat.pp.params
+        pivot = strat.pp.pivot[0]
+        assert strat.pp.lines.p is strat.pp.pivot
         assert pivot > 0
         assert strat.pp.s1[0] < pivot < strat.pp.r1[0]
         assert strat.pp.s2[0] < strat.pp.s1[0]

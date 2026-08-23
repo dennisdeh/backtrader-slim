@@ -64,6 +64,13 @@ class DataFiller(AbstractDataBase):
         super(DataFiller, self).start()
         self._fillbars = collections.deque()
         self._dbar = False
+        self._tdunit = None
+        # Started here rather than lazily from _load(). _load() used to ask
+        # "not len(dataname)" to mean "not started yet", but len() is also 0
+        # immediately after home() rewinds a preloaded feed - so preloading
+        # restarted the source, reopened the file it had just closed, and
+        # delivered every bar a second time.
+        self._startinner()
 
     def _startinner(self):
         """Start the wrapped feed the way cerebro starts a feed of its own.
@@ -79,7 +86,6 @@ class DataFiller(AbstractDataBase):
     def preload(self):
         if len(self.p.dataname) == self.p.dataname.buflen():
             # if data is not preloaded .... do it
-            self._startinner()
             self.p.dataname.preload()
             self.p.dataname.home()
 
@@ -121,10 +127,12 @@ class DataFiller(AbstractDataBase):
     }
 
     def _load(self):
-        if not len(self.p.dataname):
-            self._startinner()  # start data if not done somewhere else
-
-            # Copy from underlying data
+        if self._tdunit is None:
+            # Copy from underlying data, which may only have autodetected its
+            # timeframe once it was started. Kept lazy rather than moved into
+            # start(): _tdeltas only covers the intraday timeframes this
+            # filter is for, and looking it up eagerly would turn an unused
+            # daily DataFiller into a KeyError at start-up.
             self._timeframe = self.p.dataname._timeframe
             self._compression = self.p.dataname._compression
 
@@ -154,8 +162,11 @@ class DataFiller(AbstractDataBase):
         # Get time of current (from data source) bar
         dtime_cur = self.p.dataname.datetime.datetime(0)
 
-        # Calculate session end for previous bar
-        send = datetime.combine(dtime_prev.date(), self.p.dataname.sessionend)
+        # Calculate session end for previous bar.
+        # p.sessionend, not sessionend: on a started feed the bare name is the
+        # numeric session end that _start_finish() computed, and combine()
+        # needs the datetime.time the user configured.
+        send = datetime.combine(dtime_prev.date(), self.p.dataname.p.sessionend)
 
         if dtime_cur > send:  # if jumped boundary
             # 1. check for missing bars until boundary (end)
@@ -165,7 +176,7 @@ class DataFiller(AbstractDataBase):
                 dtime_prev += self._tdunit
 
             # Calculate session start for new bar
-            sstart = datetime.combine(dtime_cur.date(), self.p.dataname.sessionstart)
+            sstart = datetime.combine(dtime_cur.date(), self.p.dataname.p.sessionstart)
 
             # 2. check for missing bars from new boundary (start)
             # check gap from new sessionstart

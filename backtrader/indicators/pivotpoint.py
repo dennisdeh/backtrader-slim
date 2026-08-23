@@ -66,12 +66,18 @@ class PivotPoint(Indicator):
     """
 
     lines = (
-        "p",
+        "pivot",
         "s1",
         "s2",
         "r1",
         "r2",
     )
+    # The pivot line is "pivot", not "p": `.p` on every LineIterator is the
+    # params object, and it wins the attribute lookup before LineSeries can
+    # forward the name to `.lines`, so a line called `p` was unreachable by
+    # its own name. The alias keeps `.lines.p` working for code that used the
+    # only spelling that ever did.
+    linealias = dict(pivot="p")
     plotinfo = dict(subplot=False)
 
     params = (
@@ -93,11 +99,11 @@ class PivotPoint(Indicator):
         c = self.data.close  # current close
 
         if self.p.close:
-            self.lines.p = p = (h + l + 2.0 * c) / 4.0
+            self.lines.pivot = p = (h + l + 2.0 * c) / 4.0
         elif self.p.open:
-            self.lines.p = p = (h + l + c + o) / 4.0
+            self.lines.pivot = p = (h + l + c + o) / 4.0
         else:
-            self.lines.p = p = (h + l + c) / 3.0
+            self.lines.pivot = p = (h + l + c) / 3.0
 
         self.lines.s1 = 2.0 * p - h
         self.lines.r1 = 2.0 * p - l
@@ -154,7 +160,13 @@ class FibonacciPivotPoint(Indicator):
       - http://stockcharts.com/school/doku.php?id=chart_school:technical_indicators:pivot_points
     """
 
-    lines = ("p", "s1", "s2", "s3", "r1", "r2", "r3")
+    lines = ("pivot", "s1", "s2", "s3", "r1", "r2", "r3")
+    # The pivot line is "pivot", not "p": `.p` on every LineIterator is the
+    # params object, and it wins the attribute lookup before LineSeries can
+    # forward the name to `.lines`, so a line called `p` was unreachable by
+    # its own name. The alias keeps `.lines.p` working for code that used the
+    # only spelling that ever did.
+    linealias = dict(pivot="p")
     plotinfo = dict(subplot=False)
     params = (
         ("open", False),  # add opening price to the pivot point
@@ -178,11 +190,11 @@ class FibonacciPivotPoint(Indicator):
         c = self.data.close  # current high
 
         if self.p.close:
-            self.lines.p = p = (h + l + 2.0 * c) / 4.0
+            self.lines.pivot = p = (h + l + 2.0 * c) / 4.0
         elif self.p.open:
-            self.lines.p = p = (h + l + c + o) / 4.0
+            self.lines.pivot = p = (h + l + c + o) / 4.0
         else:
-            self.lines.p = p = (h + l + c) / 3.0
+            self.lines.pivot = p = (h + l + c) / 3.0
 
         self.lines.s1 = p - self.p.level1 * (h - l)
         self.lines.s2 = p - self.p.level2 * (h - l)
@@ -243,10 +255,16 @@ class DemarkPivotPoint(Indicator):
     """
 
     lines = (
-        "p",
+        "pivot",
         "s1",
         "r1",
     )
+    # The pivot line is "pivot", not "p": `.p` on every LineIterator is the
+    # params object, and it wins the attribute lookup before LineSeries can
+    # forward the name to `.lines`, so a line called `p` was unreachable by
+    # its own name. The alias keeps `.lines.p` working for code that used the
+    # only spelling that ever did.
+    linealias = dict(pivot="p")
     plotinfo = dict(subplot=False)
     params = (
         ("open", False),  # add opening price to the pivot point
@@ -269,7 +287,7 @@ class DemarkPivotPoint(Indicator):
         x3 = self.data.high + self.data.low + 2.0 * self.data.close
 
         x = CmpEx(self.data.close, self.data.open, x1, x2, x3)
-        self.lines.p = x / 4.0
+        self.lines.pivot = x / 4.0
 
         self.lines.s1 = x / 2.0 - self.data.high
         self.lines.r1 = x / 2.0 - self.data.low

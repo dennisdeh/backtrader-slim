@@ -224,9 +224,69 @@ path, which skips that normalisation, is refused now.
 
 ---
 
+## Clearing the board
+
+Every finding the session had filed as pinned-not-fixed was then fixed. Six of
+them; the notes below are what each turned out to be, since in three cases the
+recorded reason for leaving it alone did not survive contact.
+
+**`DataFilter` delivered every bar twice under preload.** `_load` asked
+`not len(dataname)` to mean "not started yet" — but `len()` is also 0 right
+after `home()` rewinds a preloaded feed, so it restarted the source, reopened
+the file it had just closed, and read the whole thing again. Both wrappers
+start their inner feed from `start()` now. The time-order check added earlier
+the same day found this on its own: the second pass showed up as bar 256 dated
+2006-01-02, after 2006-12-29.
+
+**`DataFiller` read the numeric `sessionend`.** One word — `p.sessionend`, not
+`sessionend`. What had held it up was that the class had never run, so its
+output was unverified. It is verified now, by hand rather than by recording
+what the code does: given a feed carrying 10:31 and 10:34 of one session, the
+filler inserts 10:32 and 10:33 priced at the 10:31 close, with the configured
+fill volume, and leaves the real bars alone.
+
+**`Position.set` reported nothing opened from flat.** It read `self.size` — the
+old size, always 0 in that branch — where its siblings say `size`.
+
+**Two `Vortex` indicators.** The exported one lived in
+`backtrader/indicators/contrib/`, so importing the identical top-level module
+silently re-registered the name. The top-level copy survives — it is the
+Black-formatted one, and the contrib copy carried a duplicated copyright line
+from the licence sweep. `backtrader/indicators/contrib/` held nothing else, so
+the package is gone.
+
+**`PivotPoint`'s pivot line.** The mechanism turned out to be worth
+understanding before touching: `.p` is not shadowed by anything clever.
+`LineSeries.__getattr__` is what forwards an unknown attribute to `.lines`, and
+`__getattr__` only runs when normal lookup *fails* — so the params instance
+attribute won and the line never got a look in. No alias can reclaim `.p`. The
+line is `pivot` now, and `linealias = dict(pivot="p")` keeps `.lines.p`
+returning the same line object, so the only spelling that ever worked still
+works.
+
+**PandasData's timestamps.** A DataFrame index carries a bare date, landing on
+midnight, while every CSV feed stamps a daily bar at the session end — so the
+same session came out a day apart depending on which feed loaded it. Both
+pandas feeds apply the house convention now. Only a bar with *no time of day at
+all* is moved, and only for daily or coarser timeframes: intraday data, where
+midnight is a real time rather than a missing one, is untouched.
+
+### What is left
+
+One item, and it is not pinned: **`frompackages` defeats static analysis**. The
+obvious fix — import the names normally — would make numpy and statsmodels hard
+dependencies of a package whose `dependencies` list is deliberately empty.
+`frompackages` exists precisely so those imports happen at class-creation time
+and fail with a clear message when the package is absent. Making `ols.py`,
+`hurst.py` and `calmar.py` legible to pyflakes without that regression needs a
+different mechanism, not an edit.
+
+---
+
 ## Tests and coverage
 
-259 → **416 passed**, 1 skipped, 2 xfailed, 48.0 s.
+259 → **429 passed**, 1 skipped, 48.2 s — and no `xfail`s left, because
+every defect they guarded is fixed.
 Coverage 73% → **76% of statements**, 69% → **72%** counting branches.
 `store.py` 33% → 73%, `feed.py` 69% → 73%.
 
@@ -246,25 +306,21 @@ concurrency tests are new because nothing covered the subject.
 
 ---
 
-## Also found, not acted on
+## Also found along the way
 
-- **Two `Vortex` classes.** `indicators/vortex.py` and
-  `indicators/contrib/vortex.py` are identical implementations;
-  `bt.indicators.Vortex` is the contrib one, and the top-level module is
-  imported by nothing — which is why it reads 0% coverage while its test
-  passes. Importing it silently re-registers `Vortex`.
-- **`Position.set` reports nothing opened from flat**, where every sibling
-  branch and `Position.update` report the size. Inert — nothing reads
-  `upopened` outside `position.py`.
-- **A corrupt shebang** in `strategy.py` (`#!/usr/bin389/env python`), fixed.
+All of these are fixed; they are listed because none was what the session set
+out to look for.
+
+- **A corrupt shebang** in `strategy.py` (`#!/usr/bin389/env python`) — the
+  only such line in the tree.
 - **The conda env is `backtrader`, not `slim-backtrader`.** `environment.yml`
   declared the distribution name, so `conda env create` built an env none of
   the documented `conda activate` lines matched. Fixed in four files.
-- **Python 2 shims survive** in `cerebro.py` and `writer.py`
+- **The last Python 2 shims** in `cerebro.py` and `writer.py`
   (`collectionsAbc`, with a Russian comment) and in
-  `test_strategy_optimized.py` (`time.clock` fallback). CLAUDE.md authorizes
-  deleting these on sight; they were left for a separate mechanical commit so
-  as not to bury the behaviour changes.
+  `test_strategy_optimized.py` (a `time.clock` fallback, removed from Python
+  in 3.8). CLAUDE.md authorizes deleting these on sight; they went in their own
+  mechanical commit so as not to bury the behaviour changes.
 
 ## Where the suite's time goes
 

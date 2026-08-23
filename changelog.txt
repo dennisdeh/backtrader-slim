@@ -101,6 +101,39 @@ UNRELEASED
     size passed there is normalised as before; only the direct broker call is
     refused. API break: these raise where they previously notified.
 
+  FIXES (the pinned findings)
+  - filters.DataFilter delivered every bar twice when preloading: 510 bars for
+    a 255-bar feed. _load asked `not len(dataname)` to mean "not started yet",
+    but len() is also 0 right after home() rewinds a preloaded feed, so it
+    restarted the source, reopened the file it had just closed and read it
+    again. Both wrappers start their inner feed from start() now.
+  - filters.DataFiller read the wrapped feed's `sessionend`, the numeric date
+    _start_finish() computes, where datetime.combine needs `p.sessionend`, the
+    datetime.time the user configured. Same for sessionstart. The filler had
+    never run; its output is now checked by hand against the documented rule.
+  - Position.set reported upopened == 0 when opening from a flat position,
+    where every sibling branch and Position.update report the size opened.
+  - There were two Vortex indicators. bt.indicators.Vortex resolved to
+    backtrader/indicators/contrib/vortex.py, so importing the identical
+    backtrader/indicators/vortex.py silently re-registered the name. The
+    top-level module survives and is imported like every other indicator;
+    backtrader/indicators/contrib/ held nothing else and is deleted. API
+    break: `import backtrader.indicators.contrib` no longer exists.
+    backtrader/studies/contrib/ is untouched.
+  - PivotPoint's pivot line is named `pivot`. It was `p`, which no caller
+    could reach: `.p` on every LineIterator is the params object, and
+    LineSeries.__getattr__ only forwards a name to `.lines` when normal lookup
+    fails. Same for FibonacciPivotPoint and DemarkPivotPoint.
+    `linealias = dict(pivot="p")` keeps `.lines.p` returning the same line, so
+    the only spelling that ever worked still works.
+  - PandasData and PandasDirectData stamp a daily bar at the session end, as
+    every CSV feed does. A DataFrame index carries a bare date, which landed on
+    midnight, so the same session came out a day apart depending on which feed
+    loaded it and mixing the two in one cerebro misaligned them silently. Only
+    a bar with no time of day is moved, and only for daily or coarser
+    timeframes - intraday data is untouched. API break: daily PandasData
+    timestamps move from midnight to sessionend.
+
   MODERNIZATION
   - The last Python 2 shims are gone. cerebro.py and writer.py both carried
     a try/except around collections.abc; both call sites use
@@ -108,7 +141,7 @@ UNRELEASED
     back to time.clock, removed from Python in 3.8, on a bare except.
 
   TESTS
-  - 259 -> 416 tests, 47.9s -> 48.0s. Coverage 73% -> 76% of statements,
+  - 259 -> 429 tests, 47.9s -> 48.2s. Coverage 73% -> 76% of statements,
     69% -> 72% counting branches; store.py 33% -> 73%, feed.py 69% -> 73%.
     tests/test_concurrency.py and tests/test_chaos.py are new; the additions
     to test_position.py, test_trade.py and test_filters_sizers.py went into

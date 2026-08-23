@@ -152,11 +152,11 @@ class TestPandasData:
         # OHLCV agree bar for bar
         assert [b[1:] for b in frompandas] == [b[1:] for b in fromcsv]
 
-    def test_pandas_bars_are_stamped_at_midnight_not_session_end(self):
-        """The CSV feeds stamp a daily bar at the session end (23:59:59.999),
-        PandasData takes the index verbatim - so the same day carries a
-        different timestamp depending on which feed loaded it. Mixing the two
-        in one Cerebro misaligns them; see reports/OPEN_ITEMS.md."""
+    def test_a_daily_bar_is_stamped_like_the_csv_feeds(self):
+        """A DataFrame index carries a bare date, which lands on midnight,
+        while every CSV feed stamps a daily bar at the session end. The same
+        session used to come out a day apart depending on which feed loaded
+        it, and mixing the two in one Cerebro misaligned them silently."""
         pd = pytest.importorskip("pandas")
         df = pd.read_csv(
             datafile("2006-day-001.txt"), parse_dates=["Date"], index_col="Date"
@@ -164,8 +164,44 @@ class TestPandasData:
         data = bt.feeds.PandasData(dataname=df, fromdate=FROMDATE, todate=TODATE)
         frompandas = collect(data)
         fromcsv = collect(csvdata())
-        assert frompandas[0][0] == datetime.datetime(2006, 1, 2, 0, 0)
-        assert fromcsv[0][0].hour == 23
+        assert [b[0] for b in frompandas] == [b[0] for b in fromcsv]
+
+    def test_the_session_end_is_configurable(self):
+        pd = pytest.importorskip("pandas")
+        df = pd.read_csv(
+            datafile("2006-day-001.txt"), parse_dates=["Date"], index_col="Date"
+        )
+        data = bt.feeds.PandasData(
+            dataname=df,
+            fromdate=FROMDATE,
+            todate=TODATE,
+            sessionend=datetime.time(17, 0),
+        )
+        assert collect(data)[0][0] == datetime.datetime(2006, 1, 2, 17, 0)
+
+    def test_an_intraday_index_keeps_its_own_time(self):
+        """Only a bar with no time of day is moved, and only daily or coarser:
+        for intraday data midnight is a real time, not a missing one."""
+        pd = pytest.importorskip("pandas")
+        stamps = [
+            datetime.datetime(2006, 1, 2, 0, 0),
+            datetime.datetime(2006, 1, 2, 10, 31),
+        ]
+        df = pd.DataFrame(
+            {
+                "open": [10.0, 11.0],
+                "high": [10.5, 11.5],
+                "low": [9.5, 10.5],
+                "close": [10.2, 11.2],
+                "volume": [100, 200],
+                "openinterest": [0, 0],
+            },
+            index=pd.DatetimeIndex(stamps),
+        )
+        data = bt.feeds.PandasData(
+            dataname=df, timeframe=bt.TimeFrame.Minutes, compression=1
+        )
+        assert [b[0] for b in collect(data)] == stamps
 
     def test_accepts_a_dataframe_without_volume(self):
         pd = pytest.importorskip("pandas")

@@ -8,7 +8,7 @@ What is tested, how it is selected, and what it costs.
 
 ```shell
 conda activate backtrader
-pytest                  # 416 tests, ~48 s
+pytest                  # 429 tests, ~48 s
 pytest --cov            # adds coverage, ~4 min
 pytest -m "not plotting"   # skip the two matplotlib rendering tests
 ```
@@ -29,12 +29,12 @@ and any `SyntaxWarning` into errors.
 | `test_orders_advanced.py` | 19 | stop/trailing/bracket/OCO orders, order_target_* |
 | `test_broker.py` | 17 | cash and value accounting, order types, commission, slippage |
 | `test_resampling_intraday.py` | 18 | intraday resample/replay, trading calendar, PSAR, PivotPoint |
-| `test_feeds.py` | 16 | CSV family, PandasData, Chainer, RollOver |
-| `test_filters_sizers.py` | 35 | filters, sizers, fillers, commission schemes, bar splitters, data wrappers |
+| `test_feeds.py` | 18 | CSV family, PandasData, Chainer, RollOver |
+| `test_filters_sizers.py` | 42 | filters, sizers, fillers, commission schemes, bar splitters, data wrappers |
 | `test_strategy_*.py`, `test_writer.py`, `test_metaclass.py`, others | 11 | strategy runs, writer output, metaclass machinery |
 | `test_licensing.py` | 5 | GPLv3 notices, upstream copyright, modification notices, LICENSE, README attribution |
 | `test_concurrency.py` | 21 | the optimization executors, `ObjectCache`, concurrent cerebros |
-| `test_position.py` | 24 | size/price arithmetic, every branch of `set` and `update` |
+| `test_position.py` | 26 | size/price arithmetic, every branch of `set` and `update` |
 | `test_trade.py` | 21 | the trade lifecycle, both directions, `TradeHistory` |
 | `test_chaos.py` | 83 | malformed input, raising callbacks, nonsense orders, `Store` |
 
@@ -86,17 +86,21 @@ currently uses it, and nothing should without being marked).
 
 ## Known defects are pinned, not skipped
 
-Two tests carry `@pytest.mark.xfail(..., strict=True)`, both in
-`test_filters_sizers.py`, both against defects listed in `OPEN_ITEMS.md`.
-`strict=True` matters: a defect that gets fixed reports as an *unexpected
-pass* and fails the run, so the fix cannot land without the entry moving out
-of `OPEN_ITEMS.md`. A plain `xfail` would quietly go green and leave the
-record stale.
+**There are no `xfail`s in the suite as of 2026-08-23** — every defect they
+guarded has been fixed. The convention stands for the next one.
 
-Where a defect is inert rather than reproducible — `Position.set` reporting
-nothing opened from flat — the test asserts today's behaviour instead, with a
-docstring saying so. Either way the rule is the same: never leave a known
-defect unpinned, and never let a pinned one be mistaken for intended
+A defect that cannot be fixed immediately gets a test either way:
+
+- reproducible — `@pytest.mark.xfail(..., strict=True)`. `strict` matters: the
+  day someone fixes it, the test reports an *unexpected pass* and fails the
+  run, so the fix cannot land without the entry moving out of `OPEN_ITEMS.md`.
+  A plain `xfail` would quietly go green and leave the record stale.
+- inert, or a deliberate-looking oddity — a test that asserts today's
+  behaviour, with a docstring saying it is pinned rather than endorsed.
+
+Both of those happened this session, and both then turned into ordinary
+passing tests when the defects were fixed. That is the point: never leave a
+known defect unpinned, and never let a pinned one be mistaken for intended
 behaviour.
 
 ## Chaos: breaking things on purpose

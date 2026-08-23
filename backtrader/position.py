@@ -93,8 +93,12 @@ class Position(object):
                 # reversal max(-10, -10 - 5) -> max(-10, -15) -> -10
                 self.upclosed = max(self.size, self.size - size)
 
-        else:  # self.size == 0
-            self.upopened = self.size
+        else:  # self.size == 0 - opening from flat
+            # `size`, not `self.size`: the whole of the new size is what this
+            # call opened. Reading self.size here - always 0 in this branch -
+            # reported nothing opened, disagreeing with every branch above and
+            # with update(), which returns opened == size for the same move.
+            self.upopened = size
             self.upclosed = 0
 
         self.size = size
