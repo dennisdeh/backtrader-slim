@@ -106,7 +106,7 @@ figs[0][0].savefig("result.png")
 
 ```shell
 conda env create -f environment.yml
-conda activate slim-backtrader
+conda activate backtrader
 pip install -e ".[dev]"
 pytest                       # 259 tests, ~47s
 pytest --cov                 # with coverage
@@ -127,7 +127,7 @@ Publishing is a manual, maintainer-only step — there is no CI and no automated
 release. From a clean checkout of `master`:
 
 ```shell
-conda activate slim-backtrader
+conda activate backtrader
 pytest                              # must be green before anything else
 rm -rf dist build                   # stale artefacts get uploaded otherwise
 python -m build                     # writes dist/*.tar.gz and dist/*.whl

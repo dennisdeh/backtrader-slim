@@ -7,7 +7,7 @@ What is tested, how it is selected, and what it costs.
 ## Running it
 
 ```shell
-conda activate slim-backtrader
+conda activate backtrader
 pytest                  # 259 tests, ~47 s
 pytest --cov            # adds coverage, ~4 min
 pytest -m "not plotting"   # skip the two matplotlib rendering tests

@@ -33,13 +33,15 @@ the change advances one of those three goals, and any API break is recorded.
 ## Environment  **[core]**
 
 ```bash
-conda activate slim-backtrader
+conda activate backtrader
 ```
 
 - Environment definition: `environment.yml` at the repo root. Create the env with
-  `conda env create -f environment.yml`. The personal env
-  `/home/deh/miniforge3/envs/inv313` also carries an editable install of this
-  repo — it is *not* the project env; do not run the suite there or document it.
+  `conda env create -f environment.yml`. **The env is named `backtrader`** - the
+  *distribution* is `slim-backtrader`, the env is not; keep the two apart. The
+  personal env `/home/deh/miniforge3/envs/inv313` also carries an editable
+  install of this repo — it is *not* the project env; do not run the suite
+  there or document it.
 - Install editable from the repo root: `pip install -e ".[dev]"`. The engine has
   **no runtime dependencies**; everything optional is an extra declared in
   `pyproject.toml` (`plotting`, `pandas`, `online`, `calendars`, `talib`, `dev`).
