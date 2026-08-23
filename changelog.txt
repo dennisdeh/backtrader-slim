@@ -1,4 +1,23 @@
 UNRELEASED
+  API BREAKS
+  Five, all deliberate; each is explained in the section named after it.
+  - A malformed CSV row raises ValueError where a truncated one used to raise
+    a bare StopIteration. Code catching StopIteration from a feed must catch
+    ValueError.                                          (EXCEPTION HANDLING)
+  - A feed whose bars go back in time raises ValueError. It used to load
+    silently. Pass checkorder=False to accept a source as it is.  (VALIDATION)
+  - An impossible order argument - a size that is None, NaN, infinite or
+    negative, or a NaN/infinite price, pricelimit, trailamount or
+    trailpercent - raises ValueError where it used to arrive at the strategy
+    as an Order.Margin notification.                             (VALIDATION)
+  - `import backtrader.indicators.contrib` no longer exists. bt.indicators.
+    Vortex is unchanged and still exported.                            (FIXES)
+  - Daily PandasData/PandasDirectData bars are stamped at the session end
+    rather than at midnight, matching every CSV feed.                 (FIXES)
+
+  Not a break, but worth knowing: PivotPoint's pivot line is now called
+  `pivot`. `.lines.p` still returns the same line, through a declared alias.
+
   CONCURRENCY
   - Optimization now runs on concurrent.futures instead of multiprocessing.Pool.
     New Cerebro parameter `executor` (default: 'process') picks the pool:
@@ -35,22 +54,6 @@ UNRELEASED
     the iterator was single-use, so a second run() on an optimizing cerebro
     saw it exhausted.
 
-  FIXES
-  - filters.DataFilter and filters.DataFiller could not load a single bar.
-    Both wrap another feed rather than filtering one in place, and both
-    raised AttributeError on _tzinput: nothing hands the inner feed to
-    cerebro, so nothing gave it an environment, and they called the wrapped
-    feed's start() where only _start() reaches _start_finish() - the half
-    that sets _tzinput and the trading calendar. Nothing in the tree
-    exercised either class, which is why they sat at 12% and 16% coverage.
-    Two defects behind that one remain, recorded in reports/OPEN_ITEMS.md
-    and pinned by strict xfail tests: DataFilter delivers every bar twice
-    under preload, and DataFiller reads the wrapped feed's numeric
-    `sessionend` where it needs `p.sessionend`, the datetime.time.
-  - backtrader/strategy.py carried a corrupt shebang (`#!/usr/bin389/env
-    python`). Harmless, since the module is imported rather than executed,
-    but it was the only such line in the tree.
-
   EXCEPTION HANDLING
   - feeds/yahoo.py no longer fabricates a volume. A bare `except: v = 0.0`
     around the volume field was commented as covering a "null" volume, but a
@@ -65,17 +68,21 @@ UNRELEASED
     wrong type, since StopIteration is the iteration protocol's sentinel, and
     a PEP 479 hazard for any caller that is a generator - and every other bad
     row said only "could not convert string to float: 'abc'", with no way to
-    tell which of a million rows was meant. API break: code catching
-    StopIteration from a feed must catch ValueError.
+    tell which of a million rows was meant. See API BREAKS.
   - The four remaining bare `except:` clauses are narrowed to what they meant
     to catch: AttributeError in lineseries.plotlabel, (TypeError, ValueError)
     in the lineiterator argument probe, Exception around the matplotlib
     backend switch, and (TypeError, IndexError, KeyError) around the plot
     artist unwrap. A bare `except:` also swallows KeyboardInterrupt,
-    SystemExit and MemoryError.
+    SystemExit and MemoryError. The package now contains none, and
+    tests/test_chaos.py fails the suite if one comes back.
   - Store.getdata and Store.getbroker raise NotImplementedError naming the
     missing attribute, where a subclass that had not set DataCls/BrokerCls
     used to get "'NoneType' object is not callable".
+  - Nothing else needed fixing: every callback a user can write - strategy,
+    indicator, analyzer, observer, sizer, writer - already propagated what it
+    raised, and StrategySkipError is correctly the one exception. That is now
+    asserted rather than assumed, in both execution paths.
 
   VALIDATION
   - A data feed that goes back in time is refused. AbstractDataBase.load()
@@ -88,8 +95,7 @@ UNRELEASED
     ordering deliberately. The check sees the raw source stream only, so
     resampling and replay are unaffected. Measured cost: +2.4% of CPU on a
     bare feed load, +0.7% with ten indicators attached
-    (`python tools/benchmark.py`, 2026-08-23). API break: a feed that used to
-    load now raises ValueError unless checkorder=False.
+    (`python tools/benchmark.py`, 2026-08-23). See API BREAKS.
   - An impossible order argument is refused as one. OrderBase raises
     ValueError for a size that is None, NaN, infinite or negative, and for a
     NaN or infinite price, pricelimit, trailamount or trailpercent. These used
@@ -99,27 +105,35 @@ UNRELEASED
     asked for something meaningless. A genuine funding shortfall still reports
     Order.Margin. Strategy.buy()/sell() still take abs(size), so a negative
     size passed there is normalised as before; only the direct broker call is
-    refused. API break: these raise where they previously notified.
+    refused. See API BREAKS.
 
-  FIXES (the pinned findings)
-  - filters.DataFilter delivered every bar twice when preloading: 510 bars for
-    a 255-bar feed. _load asked `not len(dataname)` to mean "not started yet",
-    but len() is also 0 right after home() rewinds a preloaded feed, so it
-    restarted the source, reopened the file it had just closed and read it
-    again. Both wrappers start their inner feed from start() now.
-  - filters.DataFiller read the wrapped feed's `sessionend`, the numeric date
-    _start_finish() computes, where datetime.combine needs `p.sessionend`, the
-    datetime.time the user configured. Same for sessionstart. The filler had
-    never run; its output is now checked by hand against the documented rule.
+  FIXES
+  - filters.DataFilter and filters.DataFiller work. Neither could load a
+    single bar: both wrap another feed rather than filtering one in place, and
+    both raised AttributeError on _tzinput, because nothing hands the inner
+    feed to cerebro so nothing gave it an environment, and they called the
+    wrapped feed's start() where only _start() reaches _start_finish() - the
+    half that sets _tzinput and the trading calendar. Nothing in the tree
+    exercised either class, which is why they sat at 12% and 16% coverage.
+    Two further defects sat behind that one:
+      - DataFilter delivered every bar twice when preloading - 510 bars for a
+        255-bar feed. _load asked `not len(dataname)` to mean "not started
+        yet", but len() is also 0 right after home() rewinds a preloaded feed,
+        so it restarted the source, reopened the file it had just closed and
+        read it again. Both wrappers start their inner feed from start() now.
+      - DataFiller read the wrapped feed's `sessionend`, the numeric date
+        _start_finish() computes, where datetime.combine needs `p.sessionend`,
+        the datetime.time the user configured. Same for sessionstart. The
+        filler had never run, so its output was checked by hand against the
+        documented rule rather than recorded from the code.
   - Position.set reported upopened == 0 when opening from a flat position,
     where every sibling branch and Position.update report the size opened.
   - There were two Vortex indicators. bt.indicators.Vortex resolved to
     backtrader/indicators/contrib/vortex.py, so importing the identical
     backtrader/indicators/vortex.py silently re-registered the name. The
     top-level module survives and is imported like every other indicator;
-    backtrader/indicators/contrib/ held nothing else and is deleted. API
-    break: `import backtrader.indicators.contrib` no longer exists.
-    backtrader/studies/contrib/ is untouched.
+    backtrader/indicators/contrib/ held nothing else and is deleted.
+    backtrader/studies/contrib/ is untouched. See API BREAKS.
   - PivotPoint's pivot line is named `pivot`. It was `p`, which no caller
     could reach: `.p` on every LineIterator is the params object, and
     LineSeries.__getattr__ only forwards a name to `.lines` when normal lookup
@@ -131,17 +145,23 @@ UNRELEASED
     midnight, so the same session came out a day apart depending on which feed
     loaded it and mixing the two in one cerebro misaligned them silently. Only
     a bar with no time of day is moved, and only for daily or coarser
-    timeframes - intraday data is untouched. API break: daily PandasData
-    timestamps move from midnight to sessionend.
+    timeframes - intraday data is untouched. See API BREAKS.
+  - backtrader/strategy.py carried a corrupt shebang (`#!/usr/bin389/env
+    python`). Harmless, since the module is imported rather than executed,
+    but it was the only such line in the tree.
 
   STATIC ANALYSIS
-  - No module under backtrader/ uses the metaclass `packages`/`frompackages`
-    directives any more. They import a package when an object is constructed
-    and setattr the names into the defining module's globals - and into every
-    base class's module besides - so pyflakes reported 19 undefined names
-    across hurst.py, ols.py and calmar.py and could not have seen a genuine
-    mistake anywhere in those files either. Now 1, and that one is an alias in
-    an __all__.
+  Two metaclass directives put names into a module's globals from outside it,
+  so a module referring to one of its own injected names referred to something
+  no reader and no checker could find. pyflakes over backtrader/ now reports
+  no undefined name at all, and tests/test_metaclass.py fails the suite if one
+  comes back.
+  - No module under backtrader/ uses `packages`/`frompackages` any more. They
+    import a package when an object is constructed and setattr the names into
+    the defining module's globals - and into every base class's module
+    besides - and pyflakes reported 19 undefined names across hurst.py, ols.py
+    and calmar.py, so it could not have seen a genuine mistake anywhere in
+    those files either.
     calmar.py asked for `collections` and `math`, which are stdlib and had no
     optionality to preserve; they are plain imports. hurst.py (numpy) and
     ols.py (pandas, statsmodels) declare the names at module level and bind
@@ -156,19 +176,17 @@ UNRELEASED
     own __all__ - are written out instead of being generated by the `alias`
     directive: TR, ROC, RSI, Hurst, AwesomeOsc, AO, AccDeOsc, PctChange,
     PctRank, haD, PSAR, LRSI, LAGF. `alias` builds a subclass and setattrs it
-    into the defining module, so those names were invisible to a reader and to
-    a checker. Each is now the subclass the directive would have built,
-    carrying the parent's docstring and its `aliased` marker, and is dropped
-    from the parent's alias tuple. No API change: the 339 public names of
-    bt.indicators are identical before and after, down to each one's module,
-    `aliased` and MRO. The directive itself is untouched and still used by the
-    ~140 aliases no module names.
+    into the defining module, so those names were invisible too - the last 15
+    pyflakes reported. Each is now the subclass the directive would have
+    built, carrying the parent's docstring and its `aliased` marker, and is
+    dropped from the parent's alias tuple. No API change: the 339 public names
+    of bt.indicators are identical before and after, down to each one's
+    module, `aliased` and MRO. The directive itself is untouched and still
+    used by the ~140 aliases no module names.
     Substituting the canonical class name would NOT have been equivalent: an
     alias is a subclass, RSI_SMA inherits from RSI rather than from
     RelativeStrengthIndex, and a sub-indicator built as TrueRange rather than
     TR reports a different plot label and CSV header.
-  - pyflakes over backtrader/ now reports no undefined name at all, down from
-    15, and tests/test_metaclass.py fails the suite if one comes back.
   - pyflakes is a dev dependency, so the checks above can run.
 
   MODERNIZATION
@@ -178,14 +196,20 @@ UNRELEASED
     back to time.clock, removed from Python in 3.8, on a bare except.
 
   TESTS
-  - 259 -> 434 tests, 47.9s -> 49.5s. Coverage 73% -> 76% of statements,
-    69% -> 72% counting branches; store.py 33% -> 73%, feed.py 69% -> 73%.
+  - 259 -> 434 tests, ~48 s -> ~50 s (2026-08-23, Python 3.13.15). Coverage
+    73% -> 76% of statements, 69% -> 72% counting branches. Per module:
+    store.py 33% -> 73%, feed.py 69% -> 73%, position.py -> 100%,
+    trade.py -> 99%.
     tests/test_concurrency.py and tests/test_chaos.py are new; the additions
-    to test_position.py, test_trade.py and test_filters_sizers.py went into
-    those existing files rather than parallel ones.
-  - test_chaos.py carries two mechanical checks: the package must contain no
-    bare `except:`, and must never catch BaseException. Both defects they
-    guard against were real.
+    to test_position.py, test_trade.py, test_feeds.py, test_filters_sizers.py
+    and test_metaclass.py went into those existing files rather than parallel
+    ones.
+  - Four checks are mechanical rather than behavioural, each because a real
+    defect got through: the package must contain no bare `except:`, must never
+    catch BaseException, must not declare `packages`/`frompackages`, and must
+    give pyflakes no undefined name.
+  - No xfails remain: every defect that was pinned during this work has since
+    been fixed.
 
   TOOLING
   - tools/benchmark.py measures where the engine spends its time: engine
@@ -193,6 +217,11 @@ UNRELEASED
     path, and import cost. Offline and deterministic - it reads only the
     tracked fixtures in datas/. A performance claim here needs a number and
     the command that produced it; this is that command.
+    What it found is in reports/IMPROVEMENT_SUGGESTIONS.md, dated and with the
+    command beside it. Nothing in this release changes engine performance: the
+    two measured speedups it turned up (flattening the __len__ proxy chain,
+    8.8%/6.4%; a closed-form slope for HurstExponent, 12%) are recorded there,
+    not applied.
 
   DOCUMENTATION
   - The conda environment is named `backtrader`, not `slim-backtrader`, which
@@ -200,6 +229,8 @@ UNRELEASED
     `conda env create -f environment.yml` built an env that none of the
     documented `conda activate` lines matched. CLAUDE.md, README.md,
     reports/TESTING_SUITE.md and environment.yml now agree.
+  - reports/sessions/2026-08-23_performance-scan-and-concurrency.md records
+    the work; reports/OPEN_ITEMS.md has no open items left.
 
 2.0.1: 2026-08-23
   LICENSING
