@@ -36,9 +36,19 @@ class PercentRank(BaseApplyN):
     period bars ago
     """
 
-    alias = ("PctRank",)
     lines = ("pctrank",)
     params = (
         ("period", 50),
         ("func", lambda d: fsum(x < d[-1] for x in d) / len(d)),
     )
+
+
+# Declared rather than left to the `alias` directive above. A generated alias
+# is invisible to a reader and to a static checker: this module names it, so it
+# is written out. The class the directive would have built is exactly this - a
+# subclass of the original carrying its docstring and its `aliased` marker.
+
+
+class PctRank(PercentRank):
+    __doc__ = PercentRank.__doc__
+    aliased = "PercentRank"

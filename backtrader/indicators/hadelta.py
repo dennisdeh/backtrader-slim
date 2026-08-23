@@ -48,8 +48,6 @@ class haDelta(bt.Indicator):
 
     """
 
-    alias = ("haD",)
-
     lines = ("haDelta", "smoothed")
 
     params = (
@@ -71,3 +69,14 @@ class haDelta(bt.Indicator):
         self.lines.haDelta = hd = d.close - d.open
         self.lines.smoothed = self.p.movav(hd, period=self.p.period)
         super(haDelta, self).__init__()
+
+
+# Declared rather than left to the `alias` directive above. A generated alias
+# is invisible to a reader and to a static checker: this module names it, so it
+# is written out. The class the directive would have built is exactly this - a
+# subclass of the original carrying its docstring and its `aliased` marker.
+
+
+class haD(haDelta):
+    __doc__ = haDelta.__doc__
+    aliased = "haDelta"

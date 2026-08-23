@@ -89,8 +89,6 @@ class TrueRange(Indicator):
     if it yields a larger range than the daily range (High - Low)
     """
 
-    alias = ("TR",)
-
     lines = ("tr",)
 
     def __init__(self):
@@ -126,3 +124,14 @@ class AverageTrueRange(Indicator):
     def __init__(self):
         self.lines.atr = self.p.movav(TR(self.data), period=self.p.period)
         super(AverageTrueRange, self).__init__()
+
+
+# Declared rather than left to the `alias` directive above. A generated alias
+# is invisible to a reader and to a static checker: this module names it, so it
+# is written out. The class the directive would have built is exactly this - a
+# subclass of the original carrying its docstring and its `aliased` marker.
+
+
+class TR(TrueRange):
+    __doc__ = TrueRange.__doc__
+    aliased = "TrueRange"

@@ -41,7 +41,6 @@ class LaguerreRSI(PeriodN):
     best balance found theoretically at the default of ``0.5``
     """
 
-    alias = ("LRSI",)
     lines = ("lrsi",)
     params = (
         ("gamma", 0.5),
@@ -93,7 +92,6 @@ class LaguerreFilter(PeriodN):
     best balance found theoretically at the default of ``0.5``
     """
 
-    alias = ("LAGF",)
     lines = ("lfilter",)
     params = (("gamma", 0.5),)
     plotinfo = dict(subplot=False)
@@ -111,3 +109,19 @@ class LaguerreFilter(PeriodN):
         self.l2 = l2 = -g * l1 + l1_1 + g * l2_1
         self.l3 = l3 = -g * l2 + l2_1 + g * self.l3
         self.lines.lfilter[0] = (l0 + (2 * l1) + (2 * l2) + l3) / 6
+
+
+# Declared rather than left to the `alias` directive above. A generated alias
+# is invisible to a reader and to a static checker: this module names it, so it
+# is written out. The class the directive would have built is exactly this - a
+# subclass of the original carrying its docstring and its `aliased` marker.
+
+
+class LRSI(LaguerreRSI):
+    __doc__ = LaguerreRSI.__doc__
+    aliased = "LaguerreRSI"
+
+
+class LAGF(LaguerreFilter):
+    __doc__ = LaguerreFilter.__doc__
+    aliased = "LaguerreFilter"

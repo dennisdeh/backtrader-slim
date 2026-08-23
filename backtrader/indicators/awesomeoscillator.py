@@ -46,7 +46,6 @@ class AwesomeOscillator(bt.Indicator):
 
     """
 
-    alias = ("AwesomeOsc", "AO")
     lines = ("ao",)
 
     params = (
@@ -64,3 +63,19 @@ class AwesomeOscillator(bt.Indicator):
         self.l.ao = sma1 - sma2
 
         super(AwesomeOscillator, self).__init__()
+
+
+# Declared rather than left to the `alias` directive above. A generated alias
+# is invisible to a reader and to a static checker: this module names it, so it
+# is written out. The class the directive would have built is exactly this - a
+# subclass of the original carrying its docstring and its `aliased` marker.
+
+
+class AwesomeOsc(AwesomeOscillator):
+    __doc__ = AwesomeOscillator.__doc__
+    aliased = "AwesomeOscillator"
+
+
+class AO(AwesomeOscillator):
+    __doc__ = AwesomeOscillator.__doc__
+    aliased = "AwesomeOscillator"

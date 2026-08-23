@@ -8,25 +8,43 @@ move out of this file; things that turn out to be deliberate move to
 
 ## Open
 
-### The `alias` directive is still invisible to a static checker
-
-*Found 2026-08-23, as the residue of the `frompackages` item below.* Aliases
-are made by the metaclass and `setattr` into the defining module, so pyflakes
-reports 5 undefined names — `TR` in `atr.py`, `ROC` in `momentum.py`, `RSI`
-three times in `rsi.py` — plus 10 alias entries in an `__all__`.
-
-**Do not "fix" these by substituting the canonical class name.** An alias is
-not the same object: `RSI.__mro__` is `RSI -> RelativeStrengthIndex`, and
-`RSI_SMA` inherits from `RSI`, not from `RelativeStrengthIndex`. Rewriting
-`class RSI_SMA(RSI)` would silently change the class hierarchy. CLAUDE.md
-already states that aliases are public API and that renaming a class removes
-names from `bt.indicators` with no import error to show for it.
-
-*Impact:* far smaller than what it replaces. Nineteen undefined names across
-three modules hid anything else those files got wrong; five, all of them the
-same well-understood pattern in three lines of code, do not.
+Nothing. Every item filed during the 2026-08-23 session is fixed and recorded
+below; anything new goes here.
 
 ## Fixed after 2.0.1
+
+### The `alias` directive was invisible to a static checker
+
+*Found and fixed 2026-08-23, as the residue of the `frompackages` item below.*
+`alias` builds a subclass per name and `setattr`s it into the defining module,
+so a module referring to one of its own aliases referred to a name pyflakes
+could not see: `TR` in `atr.py`, `ROC` in `momentum.py`, `RSI` three times in
+`rsi.py`, and ten more listed in a module's own `__all__`.
+
+**Substituting the canonical class name would have been wrong**, and the shape
+of the trap is worth keeping: an alias is *not* the same object.
+`RSI.__mro__` is `RSI -> RelativeStrengthIndex`, and `RSI_SMA` inherits from
+`RSI`; rewriting `class RSI_SMA(RSI)` would have changed the class hierarchy.
+For `TR` and `ROC` the values are identical either way, but the sub-indicator's
+plot label and CSV header would have changed from `TR` to `TrueRange`.
+
+Instead the thirteen aliases a module names itself are written out as what the
+directive would have built - a subclass carrying the parent's docstring and its
+`aliased` marker - and dropped from the parent's `alias` tuple. Verified rather
+than assumed: a hand-written alias was compared attribute by attribute against
+a generated one (`__module__`, `__doc__`, `__bases__`, `__mro__`, `aliased`,
+`lines`, `params`, `plotinfo`, `plotlines`, `_indcol` registration) and matched
+on every one, and the 339 public names of `bt.indicators` are identical
+before and after, down to each one's module, `aliased` and MRO.
+
+The directive is untouched and still used by the ~140 aliases no module names.
+
+pyflakes over `backtrader/` now reports **no undefined name at all**, down from
+15, and `test_pyflakes_finds_no_undefined_name_anywhere` fails the suite if one
+comes back. What it still reports is the star-import re-exports every
+`__init__.py` is built from, which are deliberate - see
+`IMPROVEMENT_SUGGESTIONS.md`.
+
 
 ### `frompackages` defeated static analysis
 

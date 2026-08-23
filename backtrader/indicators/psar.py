@@ -59,7 +59,6 @@ class ParabolicSAR(PeriodN):
       - http://stockcharts.com/school/doku.php?id=chart_school:technical_indicators:parabolic_sar
     """
 
-    alias = ("PSAR",)
     lines = ("psar",)
     params = (
         ("period", 2),  # when to start showing values
@@ -170,3 +169,14 @@ class ParabolicSAR(PeriodN):
         newstatus.sar = sar
         newstatus.ep = ep
         newstatus.af = af
+
+
+# Declared rather than left to the `alias` directive above. A generated alias
+# is invisible to a reader and to a static checker: this module names it, so it
+# is written out. The class the directive would have built is exactly this - a
+# subclass of the original carrying its docstring and its `aliased` marker.
+
+
+class PSAR(ParabolicSAR):
+    __doc__ = ParabolicSAR.__doc__
+    aliased = "ParabolicSAR"

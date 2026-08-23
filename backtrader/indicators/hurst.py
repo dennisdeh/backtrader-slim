@@ -77,7 +77,6 @@ class HurstExponent(PeriodN):
 
     """
 
-    alias = ("Hurst",)
     lines = ("hurst",)
     params = (
         ("period", 40),  # 2000 was proposed
@@ -112,3 +111,14 @@ class HurstExponent(PeriodN):
 
         # Return the Hurst exponent from the polyfit output
         self.lines.hurst[0] = poly[0] * 2.0
+
+
+# Declared rather than left to the `alias` directive above. A generated alias
+# is invisible to a reader and to a static checker: this module names it, so it
+# is written out. The class the directive would have built is exactly this - a
+# subclass of the original carrying its docstring and its `aliased` marker.
+
+
+class Hurst(HurstExponent):
+    __doc__ = HurstExponent.__doc__
+    aliased = "HurstExponent"

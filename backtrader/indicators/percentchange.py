@@ -34,7 +34,6 @@ class PercentChange(Indicator):
     of period bars ago
     """
 
-    alias = ("PctChange",)
     lines = ("pctchange",)
 
     # Fancy plotting name
@@ -46,3 +45,14 @@ class PercentChange(Indicator):
     def __init__(self):
         self.lines.pctchange = self.data / self.data(-self.p.period) - 1.0
         super(PercentChange, self).__init__()
+
+
+# Declared rather than left to the `alias` directive above. A generated alias
+# is invisible to a reader and to a static checker: this module names it, so it
+# is written out. The class the directive would have built is exactly this - a
+# subclass of the original carrying its docstring and its `aliased` marker.
+
+
+class PctChange(PercentChange):
+    __doc__ = PercentChange.__doc__
+    aliased = "PercentChange"

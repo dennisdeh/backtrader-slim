@@ -297,28 +297,50 @@ The original entry also listed `factorial` among the injected names. It is not
 in `backtrader/` at all — it is in `tests/testcommon.py`, which uses the
 directive on purpose in order to test it.
 
+### And its residue
+
+**The `alias` directive was invisible to a checker too.** It builds a subclass
+per name and `setattr`s it into the defining module, so a module referring to
+one of its own aliases referred to a name pyflakes could not see: `TR`, `ROC`,
+`RSI` three times, and ten more listed in a module's own `__all__`.
+
+The obvious fix — substitute the canonical class name — is wrong, and the shape
+of the trap is worth keeping even though it was avoided. An alias is *not* the
+same object. `RSI.__mro__` is `RSI -> RelativeStrengthIndex` and `RSI_SMA`
+inherits from `RSI`, so rewriting `class RSI_SMA(RSI)` would have changed the
+class hierarchy. For `TR` and `ROC` the values come out identical either way —
+but measuring rather than assuming showed the sub-indicator's plot label and
+CSV header changing from `TR` to `TrueRange`.
+
+So the thirteen aliases a module names itself are written out as *what the
+directive would have built*: a subclass carrying the parent's docstring and its
+`aliased` marker, dropped from the parent's `alias` tuple. That equivalence was
+checked rather than believed — a hand-written alias compared attribute by
+attribute against a generated one (`__module__`, `__doc__`, `__bases__`,
+`__mro__`, `aliased`, `lines`, `params`, `plotinfo`, `plotlines`, `_indcol`
+registration) matched on every one, and the **339 public names of
+`bt.indicators` are identical before and after**, down to each one's module,
+`aliased` and MRO. The directive is untouched and still serves the ~140 aliases
+no module names.
+
+pyflakes over `backtrader/` now reports **no undefined name at all**, down from
+15 — and the suite fails if one comes back, which was itself demonstrated by
+putting `alias = ("TR",)` back and watching the test name the file, the line
+and the symbol.
+
 ### What is left
 
-One item, newly filed, and it is the residue of the above: **the `alias`
-directive is invisible to a static checker too**. Aliases are made by the
-metaclass, so pyflakes reports `TR` in `atr.py`, `ROC` in `momentum.py` and
-`RSI` three times in `rsi.py`.
-
-The obvious fix — substitute the canonical class name — is wrong, and worth
-recording as wrong. An alias is *not* the same object: `RSI.__mro__` is
-`RSI -> RelativeStrengthIndex`, and `RSI_SMA` inherits from `RSI`. Rewriting
-`class RSI_SMA(RSI)` would silently change the class hierarchy. CLAUDE.md
-already warns that aliases are public API; this is what that warning is for.
-
-Five undefined names in three lines, all the same understood pattern, is a
-different thing from nineteen spread through three modules hiding whatever else
-was wrong in them.
+Nothing filed. pyflakes still reports the star-import re-exports every
+`__init__.py` is built from — deliberate, and already covered by the standing
+suggestion to give those modules an `__all__` — and one "redefinition of
+unused `date`" in `resamplerfilter.py`, which is a false positive: that `date`
+is a method mimicking `data.datetime.date()`, not a rebinding of the import.
 
 ---
 
 ## Tests and coverage
 
-259 → **434 passed**, 1 skipped, 50.7 s — and no `xfail`s left, because
+259 → **434 passed**, 1 skipped, 49.5 s — and no `xfail`s left, because
 every defect they guarded is fixed.
 Coverage 73% → **76% of statements**, 69% → **72%** counting branches.
 `store.py` 33% → 73%, `feed.py` 69% → 73%.

@@ -160,7 +160,6 @@ class RelativeStrengthIndex(Indicator):
     """
 
     alias = (
-        "RSI",
         "RSI_SMMA",
         "RSI_Wilder",
     )
@@ -208,6 +207,15 @@ class RelativeStrengthIndex(Indicator):
             return float("inf")
 
         return rs
+
+
+# Declared rather than left to the `alias` directive above, because the three
+# classes below inherit from it: a generated alias would not exist yet at the
+# point their `class` statements run, and is invisible to a static checker in
+# any case. This is exactly what the directive would have built.
+class RSI(RelativeStrengthIndex):
+    __doc__ = RelativeStrengthIndex.__doc__
+    aliased = "RelativeStrengthIndex"
 
 
 class RSI_Safe(RSI):

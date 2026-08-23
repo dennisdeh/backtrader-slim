@@ -32,7 +32,7 @@ and any `SyntaxWarning` into errors.
 | `test_feeds.py` | 18 | CSV family, PandasData, Chainer, RollOver |
 | `test_filters_sizers.py` | 42 | filters, sizers, fillers, commission schemes, bar splitters, data wrappers |
 | `test_strategy_*.py`, `test_writer.py`, others | 10 | strategy runs, writer output |
-| `test_metaclass.py` | 6 | the `frompackages` directive, and that nothing optional is imported eagerly |
+| `test_metaclass.py` | 6 | the `frompackages` directive, that nothing optional is imported eagerly, and that pyflakes finds no undefined name |
 | `test_licensing.py` | 5 | GPLv3 notices, upstream copyright, modification notices, LICENSE, README attribution |
 | `test_concurrency.py` | 21 | the optimization executors, `ObjectCache`, concurrent cerebros |
 | `test_position.py` | 26 | size/price arithmetic, every branch of `set` and `update` |

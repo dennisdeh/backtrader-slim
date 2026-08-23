@@ -106,23 +106,22 @@ class TestNothingOptionalIsImportedEagerly:
         assert self.imported_after(statement) == ["numpy"]
 
 
-class TestInjectedNamesAreGone:
-    """The library's own modules no longer rely on metaclass-injected names.
+class TestNoNameIsInjectedBehindTheReadersBack:
+    """No module under ``backtrader/`` relies on a name it does not contain.
 
-    ``packages``/``frompackages`` import a package at construction time and
-    ``setattr`` the names into the defining module's globals - and into every
-    base class's module besides. The mechanism still works, and
-    ``TestFrompackages`` above still exercises it, but nothing under
-    ``backtrader/`` uses it: names a reader cannot see are names a static
-    checker cannot check, and pyflakes reported 19 undefined names across the
-    three modules that did.
+    Two metaclass directives used to put names into a module's globals from
+    outside it. ``packages``/``frompackages`` imported a package at
+    construction time and ``setattr`` the names into the defining module - and
+    into every base class's module besides. ``alias`` builds a subclass per
+    alias and ``setattr``\\s that in too.
+
+    Both still work, and ``TestFrompackages`` above still exercises the first,
+    but a name a reader cannot find is a name a checker cannot check: pyflakes
+    reported 15 undefined names across the modules that referred to their own
+    injected names, and so could not have seen a genuine mistake in any of
+    them. Where a module names an alias - in code, or in its own ``__all__`` -
+    the alias is written out as the subclass the directive would have built.
     """
-
-    MODULES = [
-        "indicators/hurst.py",
-        "indicators/ols.py",
-        "analyzers/calmar.py",
-    ]
 
     def root(self):
         return pathlib.Path(backtrader.__file__).parent
@@ -137,22 +136,26 @@ class TestInjectedNamesAreGone:
                     offenders.append(f"{path.name}:{number}")
         assert not offenders, "injected imports in:\n  " + "\n  ".join(offenders)
 
-    def test_pyflakes_sees_no_undefined_names(self):
+    def test_pyflakes_finds_no_undefined_name_anywhere(self):
+        """The whole package, not a sample of it.
+
+        Only ``undefined name`` is asserted on. pyflakes also reports the
+        star-import re-exports every ``__init__.py`` is built from, which are
+        deliberate - see reports/IMPROVEMENT_SUGGESTIONS.md for the standing
+        suggestion to give those modules an ``__all__``.
+        """
         pytest.importorskip("pyflakes")
         reporter = pytest.importorskip("pyflakes.reporter")
         api = pytest.importorskip("pyflakes.api")
 
-        problems = []
-        for relative in self.MODULES:
-            out, err = io.StringIO(), io.StringIO()
-            api.checkPath(str(self.root() / relative), reporter.Reporter(out, err))
-            for line in out.getvalue().splitlines():
-                # aliases are made by the metaclass too, and are public API -
-                # see CLAUDE.md - so `Hurst` in __all__ stays unresolvable
-                if "in __all__" not in line:
-                    problems.append(line)
+        out, err = io.StringIO(), io.StringIO()
+        for path in sorted(self.root().rglob("*.py")):
+            api.checkPath(str(path), reporter.Reporter(out, err))
 
-        assert not problems, "\n".join(problems)
+        undefined = [
+            line for line in out.getvalue().splitlines() if "undefined name '" in line
+        ]
+        assert not undefined, "\n".join(undefined)
 
 
 if __name__ == "__main__":
