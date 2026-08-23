@@ -84,14 +84,44 @@ served metadata reports the SPDX license `GPL-3.0-or-later`,
 
 https://pypi.org/project/slim-backtrader/2.0.0/
 
+## 2.0.1: the licensing correction
+
+Auditing the GPL attribution, on 2026-08-23, found that three shipped files had
+lost their entire GPLv3 header block - upstream's copyright line included -
+when commit `3359215` rewrote the import lists at the top of them. **2.0.0 went
+to PyPI in that state**, verified by downloading the published wheel. GPL-3.0
+section 4 requires those notices to survive every copy conveyed.
+
+Fixed, together with two gaps found in the same pass: no file carried the
+modification notice that section 5(a) requires of a modified work, and the nine
+fork-authored test modules had no licence header at all.
+`backtrader/plot/multicursor.py` is matplotlib-licensed rather than GPL, and
+its licence asks a derivative to summarise its changes, so it now does.
+
+`tests/test_licensing.py` is the check that defect earned, and it was
+demonstrated red against the pre-fix tree before the fix was kept. The suite is
+254 -> 259 tests. `reports/OPEN_ITEMS.md` carries the defect record.
+
+**2.0.1 was published on 2026-08-23** (commit `3a35267`), because a published
+version's files and metadata are immutable - the corrections could not reach
+the public any other way. Verified against the live index afterwards:
+`pip install slim-backtrader` resolves 2.0.1, the previously-stripped file
+ships with its notices restored, LICENSE installs into the dist-info, and the
+project page renders the *License and attribution* section crediting Daniel
+Rodriguez.
+
+https://pypi.org/project/slim-backtrader/2.0.1/
+
 ## What is left
 
-- **Rotate the upload token.** The 2.0.0 upload used an *account*-scoped token,
-  which is the only kind that can create a project. Now that the project
-  exists, revoke it and mint a token scoped to `slim-backtrader` alone.
-- **`2.0.0` is spent.** PyPI refuses a re-upload of a version even after the
-  files are deleted, so any correction ships as `2.0.1` - bump `__version__` in
-  `backtrader/version.py` and nothing else.
-- The release runbook is the README's *Releasing* section. Nothing about it is
-  automated, and no CI is proposed; Trusted Publishing is worth revisiting only
-  if this repository ever gains a workflow.
+- **Rotate the upload token.** Both uploads used an *account*-scoped token,
+  which is the only kind that can create a project. The project exists now, so
+  revoke it and mint one scoped to `slim-backtrader` alone. The token was also
+  pasted into a chat transcript, which is a second reason.
+- **2.0.0 and 2.0.1 are spent.** PyPI refuses a re-upload of a version even
+  after its files are deleted. Corrections ship as a new version; bump
+  `__version__` in `backtrader/version.py` and nothing else follows.
+- 2.0.0 remains on PyPI with the stripped headers. Yanking it would push users
+  to 2.0.1 without breaking pinned installs, and is worth considering.
+- The release runbook is the README's *Releasing* section. Nothing is
+  automated, and no CI is proposed.
