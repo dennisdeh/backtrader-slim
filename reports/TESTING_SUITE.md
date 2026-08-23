@@ -8,7 +8,7 @@ What is tested, how it is selected, and what it costs.
 
 ```shell
 conda activate backtrader
-pytest                  # 333 tests, ~48 s
+pytest                  # 407 tests, ~48 s
 pytest --cov            # adds coverage, ~4 min
 pytest -m "not plotting"   # skip the two matplotlib rendering tests
 ```
@@ -36,6 +36,7 @@ and any `SyntaxWarning` into errors.
 | `test_concurrency.py` | 21 | the optimization executors, `ObjectCache`, concurrent cerebros |
 | `test_position.py` | 24 | size/price arithmetic, every branch of `set` and `update` |
 | `test_trade.py` | 21 | the trade lifecycle, both directions, `TradeHistory` |
+| `test_chaos.py` | 74 | malformed input, raising callbacks, nonsense orders, `Store` |
 
 ## The golden-value contract
 
@@ -72,7 +73,7 @@ try to collect them as test classes.
 
 ## Coverage
 
-**75% of statements**, 71% once branches are counted (10614 statements, 3316
+**76% of statements**, 72% once branches are counted (10618 statements, 3318
 branches, measured 2026-08-23). It was 73%/69% on 2026-08-22, and **43%**
 statement-only over 14205 statements before the slimming session — the
 statement count fell because the dead integrations were deleted.
@@ -97,6 +98,32 @@ nothing opened from flat — the test asserts today's behaviour instead, with a
 docstring saying so. Either way the rule is the same: never leave a known
 defect unpinned, and never let a pinned one be mistaken for intended
 behaviour.
+
+## Chaos: breaking things on purpose
+
+`test_chaos.py` asks what happens when the inputs are wrong, and holds two
+rules apart.
+
+**Nothing a user writes may be swallowed.** A strategy, indicator, analyzer,
+observer, sizer or writer that raises has found something the caller needs to
+see; a run that quietly finishes after eating the exception has computed the
+wrong answer and said nothing. Every such callback is covered, in both
+execution paths, and `KeyboardInterrupt`, `SystemExit` and `MemoryError` are
+covered too — those are what a bare `except:` takes with it.
+`StrategySkipError` is the single deliberate exception, and is tested as one.
+
+**Broken input must be reported precisely.** A malformed row names the file,
+the line and the row, and raises `ValueError` — never a bare `StopIteration`,
+and never a silently fabricated value.
+
+Two of the tests are mechanical rather than behavioural: the package must
+contain no bare `except:` and must never catch `BaseException`. Both defects
+this pair guards against were real, and CLAUDE.md prefers a check that can be
+run to a rule that has to be remembered.
+
+Where a finding is real but fixing it is a behaviour decision — bars are never
+checked for time order, a negative-size buy is refused as a margin failure —
+the test asserts today's behaviour and `OPEN_ITEMS.md` carries the reasoning.
 
 ## Measuring, rather than testing
 

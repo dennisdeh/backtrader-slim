@@ -17,4 +17,4 @@ standing question; point-in-time records live in `sessions/`.
 |---|
 | [2026-08-22 — Slimming, modernization and test coverage](sessions/2026-08-22_slim-and-modernize.md) |
 | [2026-08-23 — Preparing the first PyPI upload](sessions/2026-08-23_pypi-packaging.md) |
-| [2026-08-23 — Timing the engine, and making concurrency correct](sessions/2026-08-23_performance-scan-and-concurrency.md) |
+| [2026-08-23 — Timing the engine, fixing concurrency, and breaking it on purpose](sessions/2026-08-23_performance-scan-and-concurrency.md) |

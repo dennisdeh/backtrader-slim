@@ -8,6 +8,39 @@ move out of this file; things that turn out to be deliberate move to
 
 ## Open
 
+### Nothing checks that bars arrive in time order
+
+*Found 2026-08-23.* A feed whose rows run backwards, or that has one date out
+of place, or that repeats a timestamp, loads without a word. The engine treats
+whatever order it is given as chronological, so every indicator, the broker
+and every analyzer silently compute against a timeline that does not exist.
+
+Pinned by `TestUnorderedDataIsAcceptedSilently` in `tests/test_chaos.py`,
+which asserts the current behaviour.
+
+*Why it is not fixed here:* a monotonicity check is one comparison per bar in
+the hottest loop in the library, and it would reject feeds that legitimately
+deliver their own ordering - `reverse=True` sources, and the resampler and
+replayer, which move the clock about on purpose. It needs to be decided where
+the check belongs before it is written.
+
+### Nonsense order arguments are refused as margin failures
+
+*Found 2026-08-23.* `buy(size=-5)`, `buy(size=float('nan'))` and a limit order
+at a NaN price are all refused - correctly, nothing executes - but they are
+refused with `Order.Margin`, as if the account were short of cash. A negative
+size on a buy and a NaN price are invalid arguments, not funding problems, and
+a strategy that inspects the rejection reason is told the wrong thing.
+
+`buy(size=0)` returns `None` and places nothing, which is reasonable.
+
+Pinned by `TestNonsenseOrdersAreRejectedNotCrashed` in `tests/test_chaos.py`.
+
+*Why it is not fixed here:* changing a rejection reason changes what
+`notify_order` reports to every existing strategy, and validating sizes at
+submission would reject them earlier than the broker does today. It is a
+behaviour change that needs its own decision.
+
 ### `DataFilter` delivers every bar twice when preloading
 
 *Found 2026-08-23.* `bt.filters.DataFilter(dataname=feed, funcfilter=...)`
@@ -114,6 +147,53 @@ them as undefined and cannot see genuine mistakes in those files. `ols.py`,
 is blind in exactly those modules.
 
 ## Fixed after 2.0.1
+
+### The Yahoo feed fabricated a volume for a row that had none
+
+*Found and fixed 2026-08-23.* `feeds/yahoo.py` wrapped the volume field in a
+bare `except: v = 0.0`, commented as covering a "null" volume. A null never
+reached it - the loop at the top of the same method skips any row carrying one.
+What it caught was a row too short to have a volume column, which it turned
+into a silent zero, corrupting every volume-based indicator and sizer
+downstream without a word.
+
+Found by `tests/test_chaos.py`, which feeds the parser rows that are broken in
+each of the ways a real file is.
+
+### A truncated CSV row raised a bare `StopIteration`
+
+*Found and fixed 2026-08-23.* Empty message, and the wrong type: StopIteration
+is the iteration protocol's sentinel, so raising it from a parser means that
+under PEP 479 any caller that is a generator turns it into a RuntimeError
+instead. Nothing in the tree is such a caller today, which is the only reason
+it had not bitten.
+
+`CSVDataBase._load` now re-raises row-level failures as a `ValueError` naming
+the file, the line and the row, with the original kept as `__cause__`. Every
+CSV feed gained the line number, which none of them had: the old message was
+`could not convert string to float: 'abc'` with no way to tell which of a
+million rows was meant.
+
+### Five bare `except:` clauses
+
+*Found and fixed 2026-08-23.* Besides the Yahoo one above:
+`lineseries.plotlabel` (now `AttributeError`), the `lineiterator` argument
+probe (now `TypeError, ValueError`), the matplotlib backend switch (now
+`Exception`) and the plot artist unwrap (now `TypeError, IndexError,
+KeyError`). A bare `except:` swallows `KeyboardInterrupt`, `SystemExit` and
+`MemoryError` along with everything else.
+
+`tests/test_chaos.py` carries the mechanical check that keeps them out: the
+package must contain no bare `except:` and must never catch `BaseException`.
+
+### `Store.getdata` failed with `'NoneType' object is not callable`
+
+*Found and fixed 2026-08-23.* A `Store` subclass that has not set `DataCls` or
+`BrokerCls` got that message, which says nothing about the contract it missed.
+Both now raise `NotImplementedError` naming the attribute. No class in the tree
+subclasses `Store` any more - every store integration was deleted during the
+slimming - so nothing had exercised it; it was at 33% coverage, now 73%.
+
 
 ### Concurrent cerebros clobbered each other's object cache
 

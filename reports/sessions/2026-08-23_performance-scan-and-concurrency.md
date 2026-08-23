@@ -1,8 +1,9 @@
-# 2026-08-23 — Timing the engine, and making concurrency correct
+# 2026-08-23 — Timing the engine, fixing concurrency, and breaking it on purpose
 
-A scan of the whole tree for where time goes, followed by the concurrency work
-the scan turned up. Everything measured here is reproducible with
-`python tools/benchmark.py`, which this session added.
+A scan of the whole tree for where time goes, the concurrency work the scan
+turned up, and a chaos pass over the engine's exception handling. Everything
+measured here is reproducible with `python tools/benchmark.py`, which this
+session added.
 
 Environment: Python 3.13.15, conda env `backtrader`, 64 cores.
 
@@ -134,10 +135,74 @@ where it needs the `datetime.time`.
 
 ---
 
+## Chaos: what happens when the inputs are wrong
+
+A third pass broke things on purpose. The result splits cleanly in two.
+
+**User code is handled well.** Everything a user can write — strategy
+`__init__`/`start`/`prenext`/`next`/`stop`/`notify_*`, analyzer, observer,
+sizer, indicator in both execution paths, writer — propagates what it raises.
+Nothing is swallowed, and `StrategySkipError` is correctly the single
+exception. That took no fixing; it took tests to say so.
+
+**Input parsing was not.** Every defect was in the feeds.
+
+- **The Yahoo feed fabricated data.** A bare `except: v = 0.0` around the
+  volume field was commented as covering a `"null"` volume — but a null never
+  reaches it, because a loop at the top of the same method skips any row
+  carrying one. What it actually caught was a row *too short to have a volume
+  column*, which it turned into a silent zero. Every volume-based indicator
+  and sizer downstream then computed against invented data, and nothing said
+  anything.
+
+- **A truncated CSV row raised a bare `StopIteration`** with an empty message.
+  Wrong type — `StopIteration` is the iteration protocol's sentinel — and a
+  PEP 479 hazard: any caller that is a generator would silently turn it into a
+  `RuntimeError`. Nothing in the tree is such a caller today, which is the only
+  reason it had not bitten.
+
+- **No CSV error named its line.** `could not convert string to float: 'abc'`,
+  against a million-row file. `CSVDataBase._load` now re-raises row failures as
+  a `ValueError` naming the file, the line and the row, with the original kept
+  as `__cause__`. The line counter lives in the base class, so every CSV feed
+  gained it.
+
+- **Five bare `except:` clauses**, each also swallowing `KeyboardInterrupt`,
+  `SystemExit` and `MemoryError`. All narrowed.
+
+- **`Store.getdata` failed with `'NoneType' object is not callable`** when a
+  subclass had not set `DataCls`. No class in the tree subclasses `Store` any
+  more — every store integration was deleted in the slimming — so nothing had
+  ever exercised it. 33% → 73% covered.
+
+Two of the new tests are mechanical rather than behavioural: the package must
+contain no bare `except:`, and must never catch `BaseException`. CLAUDE.md
+prefers a check that can be run to a rule that has to be remembered, and both
+defects these guard against were real.
+
+### Pinned, not fixed
+
+- **Bars are never checked for time order.** A feed running backwards, or with
+  one date out of place, or repeating a timestamp, loads without a word; every
+  indicator, the broker and every analyzer then compute against a timeline that
+  does not exist. A monotonicity check is one comparison per bar in the hottest
+  loop in the library, and it would reject feeds that deliver their own
+  ordering on purpose — `reverse=True` sources, the resampler, the replayer.
+- **Nonsense order arguments are refused as margin failures.** `buy(size=-5)`,
+  a NaN size and a limit at a NaN price are all correctly refused, but with
+  `Order.Margin` — as if the account were short of cash. A strategy inspecting
+  the rejection reason is told the wrong thing.
+
+---
+
 ## Tests and coverage
 
-259 → **333 passed**, 1 skipped, 2 xfailed, 48.1 s.
-Coverage 73% → **75% of statements**, 69% → **71%** counting branches.
+259 → **407 passed**, 1 skipped, 2 xfailed, 47.8 s.
+Coverage 73% → **76% of statements**, 69% → **72%** counting branches.
+`store.py` 33% → 73%, `feed.py` 69% → 73%.
+
+The chaos pass moved the total only slightly — most of what it exercises are
+error paths a line or two long — but it is where the defects were.
 
 | file | added | subject |
 |---|---|---|
@@ -145,6 +210,7 @@ Coverage 73% → **75% of statements**, 69% → **71%** counting branches.
 | `test_position.py` | +23 | every branch of `set`, the short side of `update`, clone/fix |
 | `test_trade.py` | +20 | lifecycle both directions, `TradeHistory`, pickle round-trip |
 | `test_filters_sizers.py` | +12 | bar splitters and the two data wrappers |
+| `test_chaos.py` | 74 (new) | malformed input, raising callbacks, orders, `Store` |
 
 New tests went into the existing files rather than parallel ones. The
 concurrency tests are new because nothing covered the subject.

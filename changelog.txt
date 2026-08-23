@@ -51,6 +51,32 @@ UNRELEASED
     python`). Harmless, since the module is imported rather than executed,
     but it was the only such line in the tree.
 
+  EXCEPTION HANDLING
+  - feeds/yahoo.py no longer fabricates a volume. A bare `except: v = 0.0`
+    around the volume field was commented as covering a "null" volume, but a
+    null never reaches it - the loop at the top of the same method skips any
+    row carrying one. What it caught was a row too short to have a volume
+    column, which it turned into a silent zero, corrupting every volume-based
+    indicator and sizer downstream without a word.
+  - A malformed CSV row now names the file, the line and the row.
+    CSVDataBase._load catches the row-level failures a parser can expect and
+    re-raises them as ValueError, keeping the original as __cause__. Before,
+    a truncated row raised a bare StopIteration with an empty message - the
+    wrong type, since StopIteration is the iteration protocol's sentinel, and
+    a PEP 479 hazard for any caller that is a generator - and every other bad
+    row said only "could not convert string to float: 'abc'", with no way to
+    tell which of a million rows was meant. API break: code catching
+    StopIteration from a feed must catch ValueError.
+  - The four remaining bare `except:` clauses are narrowed to what they meant
+    to catch: AttributeError in lineseries.plotlabel, (TypeError, ValueError)
+    in the lineiterator argument probe, Exception around the matplotlib
+    backend switch, and (TypeError, IndexError, KeyError) around the plot
+    artist unwrap. A bare `except:` also swallows KeyboardInterrupt,
+    SystemExit and MemoryError.
+  - Store.getdata and Store.getbroker raise NotImplementedError naming the
+    missing attribute, where a subclass that had not set DataCls/BrokerCls
+    used to get "'NoneType' object is not callable".
+
   MODERNIZATION
   - The last Python 2 shims are gone. cerebro.py and writer.py both carried
     a try/except around collections.abc; both call sites use
@@ -58,10 +84,14 @@ UNRELEASED
     back to time.clock, removed from Python in 3.8, on a bare except.
 
   TESTS
-  - 259 -> 333 tests, 47.9s -> 48.3s. Coverage 73% -> 75% of statements,
-    69% -> 71% counting branches. tests/test_concurrency.py is new; the
-    additions to test_position.py, test_trade.py and test_filters_sizers.py
-    went into those existing files rather than parallel ones.
+  - 259 -> 407 tests, 47.9s -> 47.8s. Coverage 73% -> 76% of statements,
+    69% -> 72% counting branches; store.py 33% -> 73%, feed.py 69% -> 73%.
+    tests/test_concurrency.py and tests/test_chaos.py are new; the additions
+    to test_position.py, test_trade.py and test_filters_sizers.py went into
+    those existing files rather than parallel ones.
+  - test_chaos.py carries two mechanical checks: the package must contain no
+    bare `except:`, and must never catch BaseException. Both defects they
+    guard against were real.
 
   TOOLING
   - tools/benchmark.py measures where the engine spends its time: engine
