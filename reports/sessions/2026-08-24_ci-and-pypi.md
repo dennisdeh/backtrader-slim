@@ -7,8 +7,8 @@ with an account-scoped API token.
 
 ## What CI runs
 
-`.github/workflows/ci.yml`, on every push to `master`, every pull request, and
-on demand. Four jobs and an aggregate:
+`.github/workflows/ci.yml`, on every push to any branch, every pull request,
+and on demand. Four jobs and an aggregate:
 
 | job | what it establishes |
 |---|---|

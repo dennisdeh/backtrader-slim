@@ -1,8 +1,8 @@
 UNRELEASED
   TOOLING
   - Continuous integration, on GitHub Actions (.github/workflows/ci.yml).
-    Runs on every push to master, every pull request and on demand: black,
-    the suite on Python 3.13 and 3.14 on Linux and on 3.13 on macOS and
+    Runs on every push to any branch, every pull request and on demand:
+    black, the suite on Python 3.13 and 3.14 on Linux and on 3.13 on macOS and
     Windows, coverage with a floor of 70%, and a job that builds the sdist
     and the wheel and verifies both. `CI passed` aggregates the four into one
     status to require in branch protection. Nothing in the engine changes.

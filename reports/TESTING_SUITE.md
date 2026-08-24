@@ -22,7 +22,10 @@ and any `SyntaxWarning` into errors.
 
 Locally first — `pytest` in the conda env is the fast answer — and then on
 GitHub Actions, since 2026-08-24. `.github/workflows/ci.yml` is the gate on
-every push to `master`, every pull request, and on demand.
+every push to any branch, every pull request, and on demand. Every branch and
+not only `master`, because feature work here merges locally rather than through
+a pull request: on `master` alone, CI would run after the merge it was meant to
+gate.
 
 | job | what it establishes | cost |
 |---|---|---|

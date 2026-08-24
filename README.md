@@ -122,9 +122,9 @@ tracked, so a fresh clone can run it immediately.
 
 ## Continuous integration
 
-[`.github/workflows/ci.yml`](.github/workflows/ci.yml) runs on every push to
-`master`, every pull request, and on demand. It is the gate; running `pytest`
-locally first is still the faster way to find out.
+[`.github/workflows/ci.yml`](.github/workflows/ci.yml) runs on every push, on
+every pull request, and on demand. It is the gate; running `pytest` locally
+first is still the faster way to find out.
 
 | job | what it establishes |
 |---|---|

@@ -8,8 +8,14 @@
 name: CI
 
 on:
+  # Every branch, not just master. Feature work here merges locally rather than
+  # through a pull request, so the branch push is the only moment CI can still
+  # be a gate - on master it would run after the merge it was meant to gate.
+  # workflow_dispatch is no help either until the file reaches the default
+  # branch, which is the same problem one step later.
   push:
-    branches: [master]
+    branches: ["**"]
+  # Kept for contributions arriving from a fork, which never push a branch here.
   pull_request:
   workflow_dispatch:
 
