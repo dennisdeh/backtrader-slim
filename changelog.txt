@@ -1,3 +1,14 @@
+UNRELEASED
+  FIXES
+  - test_numpy_arrives_only_when_hurst_is_built now skips when numpy is
+    missing instead of failing. It asserts that numpy *arrives* once
+    HurstExponent is built, so it needs numpy present, and it was the only
+    optional-package test in the suite without pytest.importorskip. The
+    development environment always has numpy - matplotlib and pandas pull it
+    in - so the gap could only surface where the sdist's suite is meant to be
+    runnable: an environment holding the engine and pytest and nothing else.
+    The artefact job in CI is what found it.
+
 2.1.0: 2026-08-23
   API BREAKS
   Five, all deliberate; each is explained in the section named after it.

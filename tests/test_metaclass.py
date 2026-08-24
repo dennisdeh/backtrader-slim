@@ -92,6 +92,12 @@ class TestNothingOptionalIsImportedEagerly:
         assert self.imported_after("import backtrader.indicators") == []
 
     def test_numpy_arrives_only_when_hurst_is_built(self):
+        # The only test here that needs the optional package present: it
+        # asserts numpy *arrives*, so without it the subprocess raises. The
+        # sdist ships this suite for downstream packagers, whose environment
+        # has nothing but the engine and pytest.
+        pytest.importorskip("numpy")
+
         statement = (
             "import backtrader as bt\n"
             "c = bt.Cerebro(stdstats=False)\n"
