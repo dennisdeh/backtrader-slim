@@ -185,6 +185,10 @@ accepts it only for this workflow file, in this repository, running in the
 
 ### One-time setup on PyPI
 
+*Done on 2026-08-24, and 2.2.0 was published through it. Kept here because it
+is not visible from outside the account, and because it has to be redone if the
+publisher is ever removed.*
+
 At <https://pypi.org/manage/project/slim-backtrader/settings/publishing/>, add
 a GitHub publisher:
 

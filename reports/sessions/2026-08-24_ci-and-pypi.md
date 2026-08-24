@@ -105,28 +105,26 @@ good for one upload. The reasoning, and what was rejected, is in
 
 ## What the maintainer still has to do
 
-CI needed nothing beyond the merge, which happened on 2026-08-24. Publishing
-does need something: PyPI has to be told to trust the workflow first.
+CI needed nothing beyond the merge, which happened on 2026-08-24. The PyPI
+publisher was configured before the first tag — unverifiable from outside the
+account at the time, and proven after the fact by the attestations on 2.2.0.
 
-1. **Add the publisher** at
-   <https://pypi.org/manage/project/slim-backtrader/settings/publishing/>:
-   owner `dennisdeh`, repository `backtrader-slim`, workflow `release.yml`,
-   environment `pypi`. Until this exists, a tag push builds and verifies and
-   then fails at the upload step — it cannot publish the wrong thing, it simply
-   will not publish.
-2. **Revoke the account-scoped API token** that uploaded 2.0.0–2.1.0. It was
-   pasted into a chat transcript, and trusted publishing makes it unnecessary.
-   This closes the first item that
-   `reports/sessions/2026-08-23_pypi-packaging.md` left open.
-3. **Optional: require `CI passed`** on `master` in branch protection, and add
+1. **Revoke the account-scoped API token** that uploaded 2.0.0–2.1.0. Nothing
+   depends on it now: 2.2.0 went out through OIDC, and the attestations name
+   the workflow that did it. It was pasted into a chat transcript once, which
+   was always the second reason. This closes the first item that
+   `reports/sessions/2026-08-23_pypi-packaging.md` left open, and it is the
+   only credential left in the picture.
+2. **Optional: require `CI passed`** on `master` in branch protection, and add
    a required reviewer to the `pypi` environment if the upload should need an
    approval click.
-4. **Optional: the TestPyPI rehearsal.** Add a *pending* publisher at
+3. **Optional: the TestPyPI rehearsal.** Add a *pending* publisher at
    <https://test.pypi.org/manage/account/publishing/> with project name
    `slim-backtrader` and environment `testpypi`, then run the Release workflow
-   manually with the TestPyPI box ticked. That closes the second open item from
-   the packaging session — `~/.pypirc` having no `[testpypi]` section stops
-   mattering, because the rehearsal no longer runs from a workstation.
+   manually with the TestPyPI box ticked. Never set up: 2.2.0 proved the
+   release path in production instead. Worth having anyway before a release
+   that matters, and it still closes the packaging session's `~/.pypirc` item,
+   because the rehearsal no longer runs from a workstation.
 
 ## Verification (2026-08-24)
 
@@ -148,11 +146,10 @@ Everything below was executed; nothing is inferred from reading the YAML.
 | the tag-vs-version guard | matches `v2.1.0`, rejects `v9.9.9` |
 | the changelog-to-release-notes step | ran the real `run:` block out of the YAML, for a version that exists and one that does not |
 
-The `verify` and `publish` jobs of `release.yml` cannot be run locally — they
-need the runner's OIDC identity and, for `publish`, a configured publisher on
-PyPI. Their shell was executed here; their GitHub-side behaviour has not been.
-The first real tag is where that gets proven, which is an argument for
-rehearsing on TestPyPI once.
+The `verify` and `publish` jobs of `release.yml` could not be run locally —
+they need the runner's OIDC identity and, for `publish`, a configured publisher
+on PyPI. Only their shell was executed here. Everything below the line in
+*Released as 2.2.0* is what proved the rest, later the same day.
 
 ## The first runs
 
@@ -172,8 +169,51 @@ in nothing.
 Per-job durations, and what they say about where the time goes, are in
 `reports/TESTING_SUITE.md`.
 
-`master` was fast-forwarded to `41d12f7` and pushed on 2026-08-24. No tag has
-been pushed, and `release.yml` has never run.
+`master` was fast-forwarded to `41d12f7` and pushed on 2026-08-24. Two more
+commits followed the same day — the measured CI durations, and `Release 2.2.0`
+— each gated by a green run of its own.
+
+## Released as 2.2.0
+
+Published to PyPI on 2026-08-24: https://pypi.org/project/slim-backtrader/2.2.0/
+
+**The first release this project has not uploaded by hand.** `git push origin
+v2.2.0` was the whole of it; nothing was built or uploaded from a workstation.
+Release run #1 ran `build` -> `verify` on 3.13 and 3.14 -> `publish to PyPI` ->
+`github-release`, with `publish to TestPyPI` correctly skipped, and the tag
+guard confirmed `v2.2.0` against the built wheel before any of it.
+
+The number was argued before the tag and settled deliberately. `git diff
+667333c HEAD -- backtrader/` is **empty**: the installed engine is byte-identical
+to 2.1.0. What 2.2.0 ships is the rewritten README — which is the PyPI project
+page, and which no longer tells readers the project has no CI — plus one
+`importorskip` in `tests/test_metaclass.py` inside the sdist. The README's own
+scheme reads Z as "bug fixes and documentation", which is 2.1.1; 2.2.0 was
+chosen as a project-level milestone, CI and automated releases being a
+substantial change to how the project works.
+
+Verified against the live index rather than the local build:
+
+| check | result |
+|---|---|
+| `pip install slim-backtrader==2.2.0` into an empty venv | installs exactly one package |
+| `import backtrader` from outside any source tree | `2.2.0 (2, 2, 0)`, `SMA` and `Cerebro` resolve |
+| `btrun --help` | entry point registered |
+| served `requires_dist` | every entry gated behind an `extra` — no runtime dependencies |
+| served metadata | `Requires-Python >=3.13`, `GPL-3.0-or-later` |
+| GitHub release `v2.2.0` | published, both artefacts attached at the same byte sizes PyPI serves, notes are the fenced changelog section |
+
+**The attestations are the part worth keeping.** `GET
+/integrity/slim-backtrader/2.2.0/<file>/provenance` returns 200 for both files
+and names the publisher:
+
+    {'kind': 'GitHub', 'repository': 'dennisdeh/backtrader-slim',
+     'workflow': 'release.yml', 'environment': 'pypi'}
+
+The same endpoint returns **404** for 2.1.0. That is the external, after-the-fact
+proof that this upload came from the workflow through OIDC and not from a token
+— the thing that could not be checked beforehand, because PyPI exposes publisher
+configuration only inside the account that owns it.
 
 ## Also corrected
 
