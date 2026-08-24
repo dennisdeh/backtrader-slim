@@ -115,9 +115,14 @@ account at the time, and proven after the fact by the attestations on 2.2.0.
    was always the second reason. This closes the first item that
    `reports/sessions/2026-08-23_pypi-packaging.md` left open, and it is the
    only credential left in the picture.
-2. **Optional: require `CI passed`** on `master` in branch protection, and add
-   a required reviewer to the `pypi` environment if the upload should need an
-   approval click.
+2. ~~Optional: require `CI passed` on `master`.~~ **Done 2026-08-24, with
+   bypass prevention on**, so the gate binds the maintainer too: a fresh commit
+   pushed straight to `master` is rejected, and the way through is a green
+   branch plus `git merge --ff-only`, which preserves the SHA and carries its
+   checks. CLAUDE.md's *Git workflow* section and the README's release runbook
+   were rewritten to match — the runbook's old `git push origin master v2.2.0`
+   would now fail. Still optional: a required reviewer on the `pypi`
+   environment, which would turn an upload into an approval click.
 3. **Optional: the TestPyPI rehearsal.** Add a *pending* publisher at
    <https://test.pypi.org/manage/account/publishing/> with project name
    `slim-backtrader` and environment `testpypi`, then run the Release workflow

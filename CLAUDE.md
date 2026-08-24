@@ -110,11 +110,42 @@ And what bounds it:
 
 ## Git workflow  **[core]**
 
-- Feature work happens on a **branch in the main checkout**: `git checkout -b <name>`.
-  No worktrees.
+- **`master` is protected, and the protection cannot be bypassed** (since
+  2026-08-24). `CI passed` is a required status check, so a commit reaches
+  `master` only once CI has gone green **on that exact SHA**. Pushing a fresh
+  commit straight to `master` is rejected — it carries no checks, and none will
+  ever arrive for it. Verified rather than assumed, on 2026-08-24:
+
+  ```
+  remote: error: GH013: Repository rule violations found for refs/heads/master.
+  remote: - Required status check "CI passed" is expected.
+   ! [remote rejected] master -> master (push declined due to repository rule violations)
+  ```
+
+  It is a **repository ruleset** (Settings -> Rules -> Rulesets), not a classic
+  branch-protection rule, which is why the error says `GH013` and points at
+  `/rules`. Look there, not under Settings -> Branches.
+- Feature work happens on a **branch in the main checkout** — now because the
+  protection requires it, not only by convention. No worktrees.
+
+  ```shell
+  git checkout -b <name>
+  # work; commit
+  git push -u origin <name>       # CI runs here
+  # wait for `CI passed` to go green on the branch
+  git checkout master
+  git merge --ff-only <name>      # fast-forward preserves the SHA...
+  git push origin master          # ...so the green checks come with it
+  ```
+
+  **The fast-forward is load-bearing.** A merge commit is a new SHA with no
+  checks and is rejected; `--ff-only` fails loudly rather than creating one.
 - Commit when asked. **Never push, never merge into `master`, never delete a
   branch** without an explicit instruction. The full commit→push→merge flow is
   *not* the default here.
+- **Tags are not branches, and the protection does not cover them.** That is why
+  `git push origin vX.Y.Z` still works — and why it is the one irreversible git
+  action here. See *Versioning and release*.
 - The remote is `origin` = `git@github.com:dennisdeh/backtrader-slim.git` (SSH).
   The GitHub repository was renamed from `backtrader`; the old URL still
   301-redirects, but that redirect dies the moment anything else claims the
@@ -122,10 +153,10 @@ And what bounds it:
 - **`upstream` = `https://github.com/mementum/backtrader.git` is configured.**
   It is dormant - see `reports/DECISIONS.md` before proposing a sync.
   Run `git remote -v` before diagnosing any push/fetch failure.
-- **There is no PR workflow and no `gh` usage in this repository.** Reaching for
-  `gh` wastes a turn.
-- Upstream (`mementum/backtrader`) is not configured as a remote. Add one only if
-  asked.
+- **There is no PR workflow, and `gh` is not installed.** The protection needs
+  no pull request — a green branch plus a fast-forward satisfies it. Repository
+  settings and branch protection cannot be changed from a session at all: there
+  is no token, and SSH does not authenticate the REST API.
 - Read `git status` before staging; never `git add -A` from the repo root blind.
 
 ## Testing  **[core]**

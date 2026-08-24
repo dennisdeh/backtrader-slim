@@ -151,14 +151,22 @@ rather than aspirational.
 
 ## Releasing
 
-A release is one tag; CI does the rest.
+A release is one tag; CI does the rest. It starts on a branch because `master`
+requires a green `CI passed` on the exact commit being pushed.
 
 ```shell
-$EDITOR backtrader/version.py       # __version__ = "2.2.0" - the whole change
-$EDITOR changelog.txt               # UNRELEASED -> "2.2.0: 2026-08-24"
-git commit -am "Release 2.2.0"
-git tag -a v2.2.0 -m "slim-backtrader 2.2.0"
-git push origin master v2.2.0
+git checkout -b release-2.3.0
+$EDITOR backtrader/version.py       # __version__ = "2.3.0" - the whole change
+$EDITOR changelog.txt               # UNRELEASED -> "2.3.0: YYYY-MM-DD"
+git commit -am "Release 2.3.0"
+git push -u origin release-2.3.0    # CI runs; wait for it to go green
+
+git checkout master
+git merge --ff-only release-2.3.0   # fast-forward, so the checks carry over
+git push origin master
+
+git tag -a v2.3.0 -m "slim-backtrader 2.3.0"
+git push origin v2.3.0              # this is the step that publishes
 ```
 
 Pushing a `vX.Y.Z` tag runs
@@ -217,8 +225,10 @@ accounts are separate from PyPI ones.
 - **A version can only be uploaded once.** PyPI rejects a re-upload of the same
   version even after a delete, so a correction is a new version: bump
   `__version__` and tag again. 2.0.0, 2.0.1, 2.1.0 and 2.2.0 are spent.
-- **The tag is the trigger.** Pushing `v2.2.0` publishes 2.2.0. There is no
-  other confirmation step unless the `pypi` environment has a reviewer.
+- **The tag is the trigger.** Pushing `v2.3.0` publishes 2.3.0. There is no
+  other confirmation step unless the `pypi` environment has a reviewer. Branch
+  protection does not apply to tags, so nothing stops that push the way it
+  stops a direct push to `master`.
 - **The simple index lags an upload by a few minutes.** `pip install` reporting
   "no matching distribution" straight after a release is a stale CDN edge, not
   a failed upload. `curl -s -H "Accept: application/vnd.pypi.simple.v1+json"
