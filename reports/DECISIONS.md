@@ -3,7 +3,7 @@
 Things that were examined and found to be correct, deliberate, or the lesser
 evil. Do not re-open these without new evidence.
 
-*Last updated: 2026-08-23*
+*Last updated: 2026-08-24*
 
 ## Upstream is dormant, and this fork already contains all of it
 
@@ -127,3 +127,41 @@ A daily bar carries `23:59:59.999` as its time, so `todate=datetime(2006, 6, 30)
 excludes 2006-06-30. This looks like an off-by-one when splitting a feed on a
 date boundary; it is the documented consequence of session-end stamping.
 Pinned by `test_todate_excludes_a_bar_stamped_at_the_session_end`.
+
+## How CI and publishing are wired, and what was rejected
+
+*2026-08-24*
+
+`.github/workflows/ci.yml` gates changes; `.github/workflows/release.yml`
+publishes on a `vX.Y.Z` tag. The choices behind them, so they are not re-argued:
+
+- **Trusted publishing (OIDC), not an API token.** PyPI is configured to trust
+  this workflow file, in this repository, in the `pypi` environment, and mints
+  a credential valid for one upload. The alternative was a repository secret,
+  which is a standing credential that leaks by being copied — and the token
+  that uploaded 2.0.0–2.1.0 was already pasted into a chat transcript once. The
+  narrower consequence matters too: a token in `secrets` is usable by any
+  workflow in the repository, an OIDC trust is usable by one.
+- **Actions pinned to a commit SHA, with the version in a trailing comment.**
+  A tag is mutable, and one of these actions is handed a credential that can
+  publish. Refresh a pin with
+  `git ls-remote --tags https://github.com/<owner>/<repo>`.
+- **No Dependabot.** It would keep those pins fresh and it is the obvious
+  companion to them — but it works by opening pull requests, and this
+  repository has no PR workflow. Refreshing pins by hand at release time is the
+  smaller cost. Reconsider if the repository ever takes contributions.
+- **No Codecov or any third-party analytics.** Coverage is measured in CI,
+  enforced with `--cov-fail-under`, and kept as a build artefact. Sending the
+  repository's coverage to an external service to get a badge would add an
+  account, a token and a network dependency for something a job summary already
+  prints.
+- **Publishing is a tag push, not a "Publish release" click.** The tag is what
+  a maintainer already creates, and it is scriptable. The version guard makes
+  the failure mode — tagging `v2.2.0` against `__version__ = "2.1.0"` — a red
+  build instead of an unusable upload, which matters because PyPI never lets a
+  version be uploaded twice.
+- **The release workflow verifies the artefact, not the working tree.** Its
+  `verify` job deliberately does not check out the repository: it installs the
+  sdist and runs the suite the sdist itself ships. Testing the checkout would
+  have re-tested what CI already tested and would have missed exactly the
+  defect that shipped in 2.0.0.

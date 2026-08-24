@@ -1,0 +1,219 @@
+# Publishing slim-backtrader to PyPI.
+#
+#   git tag -a v2.2.0 -m "slim-backtrader 2.2.0" && git push origin v2.2.0
+#
+# is the whole release. The tag must match __version__ in
+# backtrader/version.py; the build job refuses to go on if it does not.
+#
+# There is no API token anywhere in this repository. PyPI is configured to
+# trust this workflow file, in this repository, running in the `pypi`
+# environment, and mints a short-lived OIDC credential for that combination
+# only - see the README's *Releasing* section for the one-time setup.
+name: Release
+
+on:
+  push:
+    tags: ["v[0-9]+.[0-9]+.[0-9]+"]
+  workflow_dispatch:
+    inputs:
+      testpypi:
+        description: "Rehearse: build, verify and publish to TestPyPI"
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+defaults:
+  run:
+    shell: bash
+
+env:
+  FORCE_COLOR: "1"
+  PIP_DISABLE_PIP_VERSION_CHECK: "1"
+  PYTHONUNBUFFERED: "1"
+
+jobs:
+  build:
+    name: build
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.built.outputs.version }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.13"
+      - run: pip install build twine
+
+      # From a pristine checkout: no editable install has run here, so nothing
+      # an installed egg-info would drag into the sdist can.
+      - run: python -m build
+
+      - name: the tag and the built version must agree
+        id: built
+        run: |
+          shopt -s nullglob
+          wheels=(dist/*.whl)
+          if [ "${#wheels[@]}" -ne 1 ]; then
+            echo "::error::expected exactly one wheel in dist/, found ${#wheels[@]}"
+            exit 1
+          fi
+          version=$(basename "${wheels[0]}" | sed -E 's|^slim_backtrader-([^-]+)-.*|\1|')
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "built slim-backtrader $version"
+          if [ "$GITHUB_REF_TYPE" = "tag" ]; then
+            tag="${GITHUB_REF_NAME#v}"
+            if [ "$tag" != "$version" ]; then
+              echo "::error::tag $GITHUB_REF_NAME does not match __version__ $version"
+              exit 1
+            fi
+          fi
+
+      - run: twine check --strict dist/*
+
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: dist
+          path: dist/
+          if-no-files-found: error
+
+  verify:
+    name: verify the artefacts on ${{ matrix.python-version }}
+    needs: build
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.13", "3.14"]
+    steps:
+      # Deliberately no checkout. Everything below runs against what would be
+      # uploaded, using the suite and the data the sdist itself ships - which
+      # is exactly the property that was broken in 2.0.0.
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: ${{ matrix.python-version }}
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: dist
+          path: dist
+
+      - name: the sdist builds, installs, and its own suite passes
+        run: |
+          python -m venv .venv-sdist
+          .venv-sdist/bin/pip install --quiet --upgrade pip
+          .venv-sdist/bin/pip install --quiet dist/*.tar.gz pytest pyflakes
+          mkdir -p extracted
+          tar -xzf dist/*.tar.gz -C extracted --strip-components=1
+          cd extracted
+          ../.venv-sdist/bin/python -m pytest -q
+
+      - name: the wheel installs alone and its entry point works
+        run: |
+          venv="$PWD/.venv-wheel"
+          python -m venv "$venv"
+          "$venv/bin/pip" install --quiet --upgrade pip
+          "$venv/bin/pip" install --quiet dist/*.whl
+          installed=$("$venv/bin/pip" freeze)
+          echo "$installed"
+          if [ "$(printf '%s\n' "$installed" | grep -c .)" -ne 1 ]; then
+            echo "::error::the wheel pulled in dependencies"
+            exit 1
+          fi
+          # "name @ file://..." is how pip freezes a local-file install.
+          name=$(printf '%s\n' "$installed" | sed -E 's/[[:space:]]*[@=].*//')
+          if [ "$name" != "slim-backtrader" ]; then
+            echo "::error::unexpected install: $installed"
+            exit 1
+          fi
+          cd "$(mktemp -d)"
+          "$venv/bin/python" -c "import backtrader; print(backtrader.__version__, backtrader.__btversion__)"
+          "$venv/bin/btrun" --help > /dev/null
+
+  publish-pypi:
+    name: publish to PyPI
+    if: github.event_name == 'push'
+    needs: [build, verify]
+    runs-on: ubuntu-latest
+    environment:
+      name: pypi
+      url: https://pypi.org/project/slim-backtrader/${{ needs.build.outputs.version }}
+    permissions:
+      # The OIDC token PyPI trusts. No secret is read here, and nothing else in
+      # the workflow is granted this.
+      id-token: write
+    steps:
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: dist
+          path: dist
+      # No skip-existing: PyPI refuses a re-upload of a version even after its
+      # files are deleted, and a silent skip would report success for an
+      # upload that did not happen.
+      - uses: pypa/gh-action-pypi-publish@dc37677b2e1c63e2034f94d8a5b11f265b73ba33 # v1.14.2
+
+  publish-testpypi:
+    name: publish to TestPyPI
+    if: github.event_name == 'workflow_dispatch' && inputs.testpypi
+    needs: [build, verify]
+    runs-on: ubuntu-latest
+    environment:
+      name: testpypi
+      url: https://test.pypi.org/project/slim-backtrader/
+    permissions:
+      id-token: write
+    steps:
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: dist
+          path: dist
+      - uses: pypa/gh-action-pypi-publish@dc37677b2e1c63e2034f94d8a5b11f265b73ba33 # v1.14.2
+        with:
+          repository-url: https://test.pypi.org/legacy/
+
+  github-release:
+    name: GitHub release
+    needs: [build, publish-pypi]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: dist
+          path: dist
+
+      # changelog.txt is the change record; the release notes are its section
+      # for this version rather than a second, drifting copy of it.
+      - name: notes from changelog.txt
+        run: |
+          version="${{ needs.build.outputs.version }}"
+          awk -v v="$version" '
+            $0 ~ "^"v":" { printing = 1; next }
+            printing && /^[0-9]+\.[0-9]+\.[0-9]+(\.[0-9]+)?:/ { exit }
+            printing { print }
+          ' changelog.txt > section.txt
+          {
+            if [ -s section.txt ]; then
+              # Fenced, so the changelog's own layout survives being rendered
+              # as markdown.
+              echo '```text'
+              cat section.txt
+              echo '```'
+            else
+              echo "changelog.txt has no section for $version."
+            fi
+            echo
+            echo "Install: \`pip install slim-backtrader==$version\`"
+          } > notes.md
+          cat notes.md
+
+      - name: create the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "$GITHUB_REF_NAME" dist/* \
+            --title "slim-backtrader ${{ needs.build.outputs.version }}" \
+            --notes-file notes.md \
+            --verify-tag

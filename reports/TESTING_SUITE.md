@@ -2,7 +2,7 @@
 
 What is tested, how it is selected, and what it costs.
 
-*Last updated: 2026-08-23*
+*Last updated: 2026-08-24*
 
 ## Running it
 
@@ -17,6 +17,66 @@ pytest -m "not plotting"   # skip the two matplotlib rendering tests
 from the repository root. The suite is offline, needs no credentials and must
 stay that way. `filterwarnings` turns backtrader's own `DeprecationWarning`s
 and any `SyntaxWarning` into errors.
+
+## Where it runs
+
+Locally first — `pytest` in the conda env is the fast answer — and then on
+GitHub Actions, since 2026-08-24. `.github/workflows/ci.yml` is the gate on
+every push to `master`, every pull request, and on demand.
+
+| job | what it establishes | cost |
+|---|---|---|
+| `black` | the tree is formatted; Black is pinned exactly, because its stable style changes between releases | seconds |
+| `pytest` | 3.13 and 3.14 on Linux, 3.13 on macOS and Windows | ~1 min per row |
+| `coverage` | `--cov-fail-under=70`, a backstop against collapse rather than a target | ~4 min |
+| `build and verify artefacts` | see below | ~2 min |
+
+`CI passed` aggregates the four, so branch protection needs one rule and a new
+job needs no edit to it.
+
+Three things about the matrix are deliberate:
+
+- **`fail-fast: false`.** A red platform must not hide the state of the others.
+- **The Linux 3.13 row installs `[dev,calendars]`.** Without
+  `pandas_market_calendars` the trading-calendar test skips itself and says so
+  to nobody. One row carrying the optional extras is what exercises those paths.
+- **macOS and Windows are gates, not decoration.** `pyproject.toml` claims
+  `Operating System :: OS Independent`. Before those rows existed the claim had
+  never been executed anywhere. What made them plausible enough to make
+  blocking, checked on 2026-08-24: the package imports nothing POSIX-only, its
+  only `sys.platform` branches are the plotting backend (guarded by
+  `except Exception`) and a win32 branch in `utils/flushfile.py`, `datas/` is
+  pure ASCII so a locale-default `open()` cannot mis-decode it, and the
+  optimization tests pass under the `spawn` start method — verified by forcing
+  `multiprocessing.set_start_method("spawn")`, which is what macOS and Windows
+  use and Linux does not.
+
+## What the artefact job checks that the suite cannot
+
+`pytest` in a clone says nothing about what gets uploaded. 2.0.0 shipped an
+sdist whose tests could not run at all — setuptools' legacy heuristic matched
+`tests/test*.py` and left out `conftest.py` and `datas/`, so all 88 test
+modules failed at collection. The suite was green throughout.
+
+So the job builds both artefacts and then:
+
+- asserts the sdist contains `conftest.py`, `testcommon.py`, a data file and
+  the licence — named files, so the failure says which one is missing;
+- asserts neither artefact carries `.pyc` or `__pycache__`;
+- installs the **sdist** into an empty venv with pytest and pyflakes and
+  nothing else, and runs the suite the sdist ships. **426 passed, 9 skipped**
+  (2026-08-24) — the nine are the optional-package tests, and that they skip
+  rather than fail is the property being checked;
+- installs the **wheel** into an empty venv, asserts `pip freeze` lists exactly
+  one package, and runs `import backtrader` and `btrun --help` from outside the
+  source tree.
+
+That third check found a real defect on 2026-08-24:
+`test_numpy_arrives_only_when_hurst_is_built` asserts numpy *arrives* when
+`HurstExponent` is built, and so needs numpy present — but had no
+`importorskip`, so it failed rather than skipped for anyone running the suite
+without the optional packages. The convention its neighbours already followed
+is now in CLAUDE.md.
 
 ## What is in it
 

@@ -114,6 +114,13 @@ https://pypi.org/project/slim-backtrader/2.0.1/
 
 ## What is left
 
+*Two of these were overtaken on 2026-08-24 by `2026-08-24_ci-and-pypi.md`,
+which put releases on GitHub Actions. The upload token no longer wants
+replacing with a project-scoped one — trusted publishing needs no token at
+all, so it wants revoking outright. And the `~/.pypirc` gap stops mattering,
+because the TestPyPI rehearsal now runs in the workflow rather than from a
+workstation. Everything else below still stands.*
+
 - **Rotate the upload token.** Both uploads used an *account*-scoped token,
   which is the only kind that can create a project. The project exists now, so
   revoke it and mint one scoped to `slim-backtrader` alone. The token was also

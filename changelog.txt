@@ -1,4 +1,25 @@
 UNRELEASED
+  TOOLING
+  - Continuous integration, on GitHub Actions (.github/workflows/ci.yml).
+    Runs on every push to master, every pull request and on demand: black,
+    the suite on Python 3.13 and 3.14 on Linux and on 3.13 on macOS and
+    Windows, coverage with a floor of 70%, and a job that builds the sdist
+    and the wheel and verifies both. `CI passed` aggregates the four into one
+    status to require in branch protection. Nothing in the engine changes.
+    The macOS and Windows rows are gates rather than decoration because
+    pyproject.toml claims "Operating System :: OS Independent" and that claim
+    had never been executed anywhere; reports/DECISIONS.md records what was
+    checked first.
+  - Releases are published by pushing a vX.Y.Z tag
+    (.github/workflows/release.yml). The workflow builds from a pristine
+    checkout, refuses to continue if the tag and __version__ disagree, runs
+    twine check --strict, installs the built sdist on 3.13 and 3.14 and runs
+    the suite that sdist ships, checks the wheel installs into an empty
+    environment pulling in nothing, uploads to PyPI, and then creates the
+    GitHub release with the artefacts attached. There is no PyPI API token in
+    the repository: publishing uses trusted publishing (OIDC), which PyPI
+    must be told about once - see the README's Releasing section.
+
   FIXES
   - test_numpy_arrives_only_when_hurst_is_built now skips when numpy is
     missing instead of failing. It asserts that numpy *arrives* once

@@ -132,8 +132,8 @@ And what bounds it:
 
 - `pytest` from the repository root — **in the foreground, with a bounded
   timeout.** Do not background the runner or spawn polling loops.
-- **259 tests, ~47 s** (2026-08-23, Python 3.13). `pytest --cov` adds coverage
-  and takes ~4 min; coverage is 73% of statements, 69% counting branches.
+- **434 tests, ~50 s** (2026-08-24, Python 3.13 and 3.14). `pytest --cov` adds
+  coverage and takes ~4 min; coverage is 72% counting branches.
   **Report exact pass/fail counts.** "Tests pass" without numbers is not a
   report.
 - The suite is offline and credential-free, and must stay that way.
@@ -155,8 +155,16 @@ And what bounds it:
 - **Root-cause discipline:** when correcting an expectation or a literal, grep the
   *whole* tree for the same value before declaring it fixed — sibling test files
   duplicate expectations (`rg -n "<value>" tests/`).
-- **No CI runs anywhere.** `.travis.yml` was deleted in 2.0.0. The local suite
-  is the only gate; run it.
+- **CI runs on GitHub Actions** (`.github/workflows/ci.yml`, since 2026-08-24):
+  black, the suite on 3.13/3.14 × Linux/macOS/Windows, coverage with a floor,
+  and an artefact build that installs the sdist and the wheel and checks both.
+  It is not a reason to skip the local run — **run `pytest` before you claim a
+  change works**; CI is what stops an unrun suite reaching `master`, several
+  minutes later.
+- **A test that needs an optional package uses `pytest.importorskip`.** The
+  sdist ships the suite for downstream packagers, whose environment has the
+  engine and pytest and nothing else; a hard import there is a failure, not a
+  skip. CI's artefact job is what catches it.
 - **The suite is warning-free and must stay that way.** `filterwarnings` in
   `pyproject.toml` turns backtrader's own `DeprecationWarning`s and any
   `SyntaxWarning` into errors, so a new warning fails the run rather than
@@ -196,8 +204,16 @@ And what bounds it:
   PyPI's `backtrader` is upstream's and can never be reused. `pip install
   backtrader` installs upstream, not this fork - and the two cannot coexist.
   Release steps are the README's *Releasing* section.
-- **Never run `pypi.sh`, `setup.py bdist_wheel` for release, or `twine upload`.**
-  Publishing is not an agent action.
+- **Never push a tag.** A `vX.Y.Z` tag on `origin` runs
+  `.github/workflows/release.yml`, which uploads to PyPI, and **a version can
+  never be uploaded twice**. Tagging is the release; it needs the same explicit
+  instruction a push does, and it is the one git action here that cannot be
+  undone.
+- **Never run `twine upload`, `pypi.sh`, or `setup.py bdist_wheel` for
+  release.** Publishing is not an agent action, by hand or by tag.
+- Publishing uses PyPI **trusted publishing** (OIDC), so there is no API token
+  in the repository and none to hand out. If an upload fails on credentials,
+  the fix is on PyPI's publisher settings, not in a secret.
 - `changelog.txt` is the change record: append notable changes, and always
   API breaks.
 
