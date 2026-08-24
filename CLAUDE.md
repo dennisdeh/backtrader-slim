@@ -194,7 +194,7 @@ And what bounds it:
 
 ## Versioning and release  **[core]**
 
-- **Plain semver, `X.Y.Z`. The current release is `2.1.0`** (2026-08-23).
+- **Plain semver, `X.Y.Z`. The current release is `2.2.0`** (2026-08-24).
   Upstream's `X.Y.Z.I` scheme — where `I` counted the built-in indicators — is
   **retired**; the fourth digit is gone, and `__btversion__` in
   `backtrader/version.py` is a 3-tuple, derived from `__version__` — bumping the

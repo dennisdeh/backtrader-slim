@@ -1,4 +1,4 @@
-UNRELEASED
+2.2.0: 2026-08-24
   TOOLING
   - Continuous integration, on GitHub Actions (.github/workflows/ci.yml).
     Runs on every push to any branch, every pull request and on demand:

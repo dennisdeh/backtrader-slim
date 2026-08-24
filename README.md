@@ -212,7 +212,7 @@ accounts are separate from PyPI ones.
 
 - **A version can only be uploaded once.** PyPI rejects a re-upload of the same
   version even after a delete, so a correction is a new version: bump
-  `__version__` and tag again. 2.0.0, 2.0.1 and 2.1.0 are spent.
+  `__version__` and tag again. 2.0.0, 2.0.1, 2.1.0 and 2.2.0 are spent.
 - **The tag is the trigger.** Pushing `v2.2.0` publishes 2.2.0. There is no
   other confirmation step unless the `pypi` environment has a reviewer.
 - **The simple index lags an upload by a few minutes.** `pip install` reporting

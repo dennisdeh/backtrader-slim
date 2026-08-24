@@ -4,12 +4,33 @@ Places where the code does something other than what it should. Fixed entries
 move out of this file; things that turn out to be deliberate move to
 `DECISIONS.md`.
 
-*Last updated: 2026-08-23*
+*Last updated: 2026-08-24*
 
 ## Open
 
 Nothing. Every item filed during the 2026-08-23 session is fixed and recorded
 below; anything new goes here.
+
+## Fixed in 2.2.0
+
+### A test needing an optional package failed instead of skipping
+
+*Found and fixed 2026-08-24, by the artefact job the CI work added.*
+`test_numpy_arrives_only_when_hurst_is_built` asserts that numpy *arrives* in
+`sys.modules` once `HurstExponent` is built, so it needs numpy installed. It
+had no `pytest.importorskip`, unlike every one of its neighbours guarding an
+optional package, so the subprocess it spawns raised `ImportError` and
+`check=True` turned that into `CalledProcessError`.
+
+Invisible in the documented development environment, where `pip install -e
+".[dev]"` pulls in matplotlib and pandas and therefore numpy. It failed in the
+one place the sdist's suite is meant to be runnable - an environment holding
+the engine and pytest and nothing else, which is what a downstream packager
+verifying the artefact has. Demonstrated red there before the fix: 1 failed,
+426 passed, 8 skipped. Green after: 426 passed, 9 skipped.
+
+The convention it broke is now written down in CLAUDE.md, and the CI job that
+catches the next one is `build and verify artefacts`.
 
 ## Fixed in 2.1.0
 
