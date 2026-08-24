@@ -27,14 +27,30 @@ not only `master`, because feature work here merges locally rather than through
 a pull request: on `master` alone, CI would run after the merge it was meant to
 gate.
 
-| job | what it establishes | cost |
+| job | what it establishes | duration |
 |---|---|---|
-| `black` | the tree is formatted; Black is pinned exactly, because its stable style changes between releases | seconds |
-| `pytest` | 3.13 and 3.14 on Linux, 3.13 on macOS and Windows | ~1 min per row |
-| `coverage` | `--cov-fail-under=70`, a backstop against collapse rather than a target | ~4 min |
-| `build and verify artefacts` | see below | ~2 min |
+| `black` | the tree is formatted; Black is pinned exactly, because its stable style changes between releases | 13-18 s |
+| `pytest` 3.13, Linux | the suite, with the optional extras installed | 67-91 s |
+| `pytest` 3.14, Linux | the same on the newer interpreter | 93 s |
+| `pytest` 3.13, macOS | that `OS Independent` holds | 69-71 s |
+| `pytest` 3.13, Windows | the same, and the slowest row of the four | 126-134 s |
+| `coverage` | `--cov-fail-under=70`, a backstop against collapse rather than a target | 207-277 s |
+| `build and verify artefacts` | see below | 75-76 s |
+| `CI passed` | the aggregate the other seven report into | 3-4 s |
 
-`CI passed` aggregates the four, so branch protection needs one rule and a new
+**Wall clock 3 min 33 s and 4 min 45 s; 661 s and 756 s of job time.** Measured
+2026-08-24 over runs #1 and #2 - the branch push and the merge to `master`, the
+first two runs there have ever been - by reading `started_at` and `completed_at`
+from `/repos/dennisdeh/backtrader-slim/actions/runs/<id>/jobs`. Two samples, so
+these are a range and not a benchmark; the spread on `coverage` and on Linux
+3.13 is runner variance, not anything in the suite.
+
+The jobs run in parallel, so wall clock is `coverage` plus scheduling: it is the
+long pole by roughly a factor of two over the next job, and the only one worth
+moving if the gate ever needs to be faster. Windows costs about twice what Linux
+and macOS do for the same 434 tests.
+
+`CI passed` aggregates the rest, so branch protection needs one rule and a new
 job needs no edit to it.
 
 Three things about the matrix are deliberate:

@@ -67,6 +67,24 @@ ships a suite for.
 Fixed with one `pytest.importorskip("numpy")`. The same venv afterwards:
 **426 passed, 9 skipped in 50.31 s**, the ninth skip being that test.
 
+## A second defect, caught before the first push
+
+As first committed, `ci.yml` triggered on `push: branches: [master]` and on
+`pull_request`. This repository does neither: CLAUDE.md has feature work happen
+on a branch in the main checkout, and says there is no PR workflow. A branch
+push would therefore have triggered nothing, and the first run would have come
+from the push of the merge — after the merge the gate exists to gate.
+`workflow_dispatch` is no escape either, because GitHub only offers it once the
+workflow is on the default branch, which is the same problem one step later.
+
+`branches: ["**"]` puts the run where the decision is. `pull_request` stays for
+contributions arriving from a fork, which never push a branch here, so the two
+triggers do not overlap in practice.
+
+It was found by asking what pushing the branch would actually cause, rather
+than by pushing and seeing. Worth doing in that order: the answer was "nothing",
+and nothing is indistinguishable from a queue that has not started yet.
+
 ## Publishing
 
 `.github/workflows/release.yml`. `git push origin v2.2.0` builds from a
@@ -87,8 +105,8 @@ good for one upload. The reasoning, and what was rejected, is in
 
 ## What the maintainer still has to do
 
-CI works the moment this branch reaches `master`. Publishing does not: PyPI has
-to be told to trust the workflow first.
+CI needed nothing beyond the merge, which happened on 2026-08-24. Publishing
+does need something: PyPI has to be told to trust the workflow first.
 
 1. **Add the publisher** at
    <https://pypi.org/manage/project/slim-backtrader/settings/publishing/>:
@@ -135,6 +153,27 @@ need the runner's OIDC identity and, for `publish`, a configured publisher on
 PyPI. Their shell was executed here; their GitHub-side behaviour has not been.
 The first real tag is where that gets proven, which is an argument for
 rehearsing on TestPyPI once.
+
+## The first runs
+
+| run | trigger | result | wall clock |
+|---|---|---|---|
+| #1 | push of `ci-and-pypi-publishing` | SUCCESS, 8/8 jobs | 3 min 33 s |
+| #2 | `master`, after the fast-forward merge | SUCCESS, 8/8 jobs | 4 min 45 s |
+
+macOS and Windows passed on their first execution anywhere, which settles the
+`Operating System :: OS Independent` question the matrix section opens: the
+claim holds, and it is now checked on every push rather than assumed. The
+`coverage` job cleared the 70% floor, and the artefact job reproduced on a
+clean runner what had only been shown locally — the sdist installs and runs the
+suite it ships with no optional package present, and the wheel installs pulling
+in nothing.
+
+Per-job durations, and what they say about where the time goes, are in
+`reports/TESTING_SUITE.md`.
+
+`master` was fast-forwarded to `41d12f7` and pushed on 2026-08-24. No tag has
+been pushed, and `release.yml` has never run.
 
 ## Also corrected
 
