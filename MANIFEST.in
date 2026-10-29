@@ -3,6 +3,8 @@
 # fixture it reads. Graft both directories explicitly instead.
 graft tests
 graft datas
+graft examples
+prune examples/output
 
 # Upstream material being pruned rather than maintained, plus local notes.
 prune contrib

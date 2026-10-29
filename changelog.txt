@@ -23,6 +23,42 @@ UNRELEASED
     getvaluesize, getvalue and getsize change; with mult=1 (every stock) the
     result is identical.                                            (FIXES)
 
+  EXAMPLES
+  - examples/: 18 runnable scripts covering data feeds, indicators, order
+    types, brackets and OCO, target orders and sizers, commissions and
+    slippage, analyzers, observers and plotting, optimisation, a
+    multi-stock rotation on a timer, signals, timeframes and replay,
+    options pricing, a covered call, delta hedging, rolling protective
+    puts, and broker features (short interest, deposits and fund returns,
+    cheat-on-open, the CSV writer). tests/test_examples.py runs every one;
+    the sdist ships them.
+
+  OPTIONS
+  - New package backtrader.options (bt.options): OptionContract,
+    OptionCSVData and OptionPandasData (feeds with bid/ask lines and a
+    contract), OptionCommInfo (premium-style accounting, per-contract
+    commission with a minimum and a maximum, an exercise/assignment fee),
+    the OptionGreeks indicator (implied volatility, delta, gamma, vega,
+    theta), and options.pricing (Black-Scholes-Merton, Black-76, a
+    Cox-Ross-Rubinstein tree, an implied-volatility solver). Standard
+    library only: the engine still has no runtime dependency.
+  - Cerebro.addoption(data, name=None, comminfo=None) adds an option feed
+    together with a commission scheme carrying the contract's multiplier.
+  - The broker settles option positions at expiry: on the expiry bar for
+    daily data, after that bar's orders, and on the first bar after it for
+    intraday data. Each settles at intrinsic value against the underlying's
+    close - in cash, or by delivering the underlying - as Order.Historical
+    fills marked order.info.settlement ("exercise", "assignment", "expiry",
+    "delivery"). Settlement executes even when cash cannot cover it.
+  - CommInfoBase.getsettlementcommission(size, kind), 0.0 by default, is
+    what a settlement is charged instead of the trading commission.
+  - The pricing functions match the worked examples in Hull, Options,
+    Futures, and Other Derivatives: c = 4.76 and p = 0.81 (S=42, K=40,
+    r=10%, sigma=20%, T=0.5); the greeks of S=49, K=50, T=20 weeks; a
+    Black-76 put of 1.12; an American put of 4.49 on 5 steps and 4.283 on
+    500. tests/test_options_pricing.py holds them.
+  - Not yet: early exercise, margin for short options, fills at bid/ask.
+
   PLOTTING
   - The x axis showed no dates at all. Every axis hid its tick labels and
     the lowest one tried to re-show them by toggling the label Text

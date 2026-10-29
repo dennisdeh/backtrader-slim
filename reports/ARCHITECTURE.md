@@ -100,6 +100,25 @@ decision was taken on — unless `cheat_on_open` is set. `order_target_*` sizes
 from the close of the decision bar and rounds down to whole units, so the
 achieved value undershoots the target by up to one unit.
 
+## Options
+
+`options/` adds a derivative class without a second engine. An option is
+one more data feed, with premiums for OHLC and an `OptionContract` attached,
+so positions, trades, analyzers and plots treat it like any instrument.
+What is specific to options sits at three points:
+
+- `OptionCommInfo` makes cash and value premium-style: `size * price * mult`.
+- `BackBroker._settle_expired`, run in `next()` after the bar's orders,
+  closes expired contracts at intrinsic value against the underlying's
+  close and, for physical settlement, trades the underlying. These are
+  `Order.Historical` fills passed through `_execute(settlement=...)`, which
+  charges the settlement commission and never refuses for cash.
+- `OptionGreeks` and `options.pricing` compute on demand; nothing in the
+  engine depends on them.
+
+`Cerebro.addoption` ties a feed to its commission scheme by name, so the
+multiplier that values a position is always the contract's.
+
 ## What was removed in 2.0.0
 
 The `stores/` package is now empty of implementations: there are no live

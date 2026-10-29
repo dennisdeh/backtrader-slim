@@ -833,6 +833,42 @@ class Cerebro(metaclass=MetaParams):
 
         return data
 
+    def addoption(self, data, name=None, comminfo=None):
+        """Adds an option feed (``bt.options.OptionCSVData``,
+        ``OptionPandasData``) and the commission scheme it trades under.
+
+        ``name`` defaults to one built from the contract, such as
+        ``"SPY 2026-12-18 450C"``. ``comminfo`` defaults to an
+        ``OptionCommInfo`` with the contract's multiplier; one passed in must
+        use that multiplier too, since it is what values the position.
+
+        The contract's ``underlying`` must name a feed added to this cerebro:
+        expiry settles against its close.
+        """
+        from .options import OptionCommInfo
+
+        contract = getattr(data, "contract", None)
+        if contract is None:
+            raise ValueError("addoption needs a feed carrying a contract")
+
+        if name is None:
+            name = data._name or (
+                f"{contract.underlying} {contract.expiry} "
+                f"{contract.strike:g}{contract.right}"
+            )
+
+        if comminfo is None:
+            comminfo = OptionCommInfo(mult=contract.multiplier)
+        elif comminfo.p.mult != contract.multiplier:
+            raise ValueError(
+                f"comminfo mult {comminfo.p.mult} is not the contract's "
+                f"multiplier {contract.multiplier}"
+            )
+
+        self.adddata(data, name=name)
+        self.broker.addcommissioninfo(comminfo, name=name)
+        return data
+
     def chaindata(self, *args, **kwargs):
         """
         Chains several data feeds into one

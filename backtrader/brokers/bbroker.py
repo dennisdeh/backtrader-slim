@@ -730,8 +730,18 @@ class BackBroker(bt.BrokerBase):
         return self.submit(order, check=_checksubmit)
 
     def _execute(
-        self, order, ago=None, price=None, cash=None, position=None, dtcoc=None
+        self,
+        order,
+        ago=None,
+        price=None,
+        cash=None,
+        position=None,
+        dtcoc=None,
+        settlement=None,
     ):
+        # settlement: an option expiry (see _settle_expired). It is charged
+        # the settlement commission, and it executes even if cash goes below
+        # zero - expiry is not an order the broker can refuse
         # ago = None is used a flag for pseudo execution
         if ago is not None and price is None:
             return  # no psuedo exec no price - no execution
@@ -797,7 +807,10 @@ class BackBroker(bt.BrokerBase):
 
             cash += closecash + pnl * comminfo.stocklike
             # Calculate and substract commission
-            closedcomm = comminfo.getcommission(closed, price)
+            if settlement is None:
+                closedcomm = comminfo.getcommission(closed, price)
+            else:
+                closedcomm = comminfo.getsettlementcommission(closed, settlement)
             cash -= closedcomm
 
             if ago is not None:
@@ -823,10 +836,13 @@ class BackBroker(bt.BrokerBase):
 
             cash -= opencash  # original behavior
 
-            openedcomm = cinfocomp.getcommission(opened, price)
+            if settlement is None:
+                openedcomm = cinfocomp.getcommission(opened, price)
+            else:
+                openedcomm = cinfocomp.getsettlementcommission(opened, settlement)
             cash -= openedcomm
 
-            if cash < 0.0:
+            if cash < 0.0 and settlement is None:
                 # execution is not possible - nullify
                 opened = 0
                 openedvalue = openedcomm = 0.0
@@ -898,6 +914,89 @@ class BackBroker(bt.BrokerBase):
 
     def notify(self, order):
         self.notifs.append(order.clone())
+
+    def _settle_expired(self):
+        """Settles every open option position whose contract has expired.
+
+        A contract settles on its expiry bar for daily and longer data -
+        after that bar's orders have executed, so a position closed at the
+        open of expiry day is not settled - and on the first bar after
+        expiry for intraday data. It settles at its intrinsic value against
+        the underlying's last close on or before expiry: the option is
+        closed at that price (``exercise``, ``assignment``, or ``expiry`` when
+        it is worthless) and, for physical settlement in the money, the
+        underlying is traded at its close (``delivery``). Each leg is an
+        ``Order.Historical`` the owning strategy is notified of, with
+        ``order.info.settlement`` naming the leg.
+        """
+        for data, pos in list(self.positions.items()):
+            contract = getattr(data, "contract", None)
+            if contract is None or not pos or not len(data):
+                continue
+
+            und = self.cerebro.datasbyname.get(contract.underlying)
+            if und is None:
+                raise ValueError(
+                    f"option {data._name!r} settles against "
+                    f"{contract.underlying!r}, which was not added to cerebro"
+                )
+
+            today = data.datetime.date(0)
+            if len(und):
+                today = max(today, und.datetime.date(0))
+            daily = data._timeframe >= bt.TimeFrame.Days
+            if today < contract.expiry or (today == contract.expiry and not daily):
+                continue
+
+            S = self._close_on_or_before(und, contract.expiry)
+            value = contract.intrinsic(S)
+            if value <= 0.0:
+                kind = "expiry"
+            else:
+                kind = "exercise" if pos.size > 0 else "assignment"
+
+            owner, tradeid = self._last_owner(data)
+            size = pos.size
+            self._settlement_leg(owner, data, -size, value, kind, tradeid)
+
+            if value > 0.0 and contract.settlement == "physical":
+                units = size * contract.multiplier
+                if contract.isput:
+                    units = -units
+                self._settlement_leg(owner, und, units, S, "delivery", tradeid)
+
+    @staticmethod
+    def _close_on_or_before(data, date):
+        # buflen: with exactbars only the last few bars are held
+        for ago in range(0, -min(len(data), data.close.buflen()), -1):
+            if data.datetime.date(ago) <= date:
+                return data.close[ago]
+        return data.close[0]
+
+    def _last_owner(self, data):
+        for order in reversed(self.orders):
+            if order.data is data and order.executed.size:
+                return order.owner, order.tradeid
+        return self.cerebro.runningstrats[0], 0
+
+    def _settlement_leg(self, owner, data, size, price, kind, tradeid):
+        ordercls = BuyOrder if size > 0 else SellOrder
+        order = ordercls(
+            owner=owner,
+            data=data,
+            size=abs(size),
+            price=price,
+            exectype=Order.Historical,
+            tradeid=tradeid,
+            histnotify=True,
+        )
+        order.addinfo(settlement=kind)
+        self._ocoize(order, None)
+        order.submit(self)
+        order.accept()
+        self.orders.append(order)
+        self.notify(order)
+        self._execute(order, ago=0, price=price, settlement=kind)
 
     def _try_exec_historical(self, order):
         self._execute(order, ago=0, price=order.created.price)
@@ -1274,6 +1373,8 @@ class BackBroker(bt.BrokerBase):
                 elif order.status == Order.Completed:
                     # a bracket parent order may have been executed
                     self._bracketize(order)
+
+        self._settle_expired()
 
         # Operations have been executed ... adjust cash end of bar
         for data, pos in self.positions.items():
