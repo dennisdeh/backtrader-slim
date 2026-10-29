@@ -26,6 +26,7 @@
 """
 
 import datetime
+import io
 
 import pytest
 
@@ -296,3 +297,24 @@ class TestCSVSubclasses:
         bars = collect(data)
         assert len(bars) > 200
         assert all(b[3] <= b[1] for b in bars)  # low <= high
+
+
+class TestFileLikeSources:
+    """A CSV feed reads a file-like object as well as a path, as its
+    docstring says; naming the feed after a path used to crash on one."""
+
+    def test_an_in_memory_file_is_read(self):
+        with open(datafile("2006-day-001.txt")) as f:
+            text = f.read()
+        data = bt.feeds.BacktraderCSVData(dataname=io.StringIO(text))
+        cerebro = bt.Cerebro(stdstats=False)
+        cerebro.adddata(data)
+        cerebro.addstrategy(bt.Strategy)
+        cerebro.run()
+        assert len(data) == 255
+        assert data._name == ""  # nothing to name it after
+
+    def test_an_open_file_is_named_after_its_path(self):
+        with open(datafile("2006-day-001.txt")) as f:
+            data = bt.feeds.BacktraderCSVData(dataname=f)
+            assert data._name == "2006-day-001"

@@ -22,19 +22,6 @@ script fails with the options work stashed. Options make it common, because
 every contract's feed ends at expiry. `tests/test_options_settlement.py`
 covers `exactbars` -2, -1 and False and leaves 1 out.
 
-### A CSV feed cannot be given a file-like object
-
-*Found 2026-10-29, writing the option settlement tests.*
-`GenericCSVData`'s docstring says `dataname` is "the filename to parse or a
-file-like object", and `CSVDataBase.start` does handle an object with
-`readline`. But `MetaCSVDataBase.dopostinit` names the feed from
-`os.path.basename(dataname)` when no `name` is given, and that raises
-`TypeError: expected str, bytes or os.PathLike object, not StringIO`.
-Reproduced on 2026-10-29 with `bt.feeds.GenericCSVData(dataname=io.StringIO(...))`.
-Passing `name=` avoids it, which is what `tests/test_options_settlement.py`
-does. The fix is to name a file-like feed from its `.name` attribute when it
-has one, and leave it unnamed otherwise.
-
 ### `PercentSizer` ignores the commission scheme
 
 *Found 2026-10-29, while fixing the stock-like `mult` item below.*
@@ -49,6 +36,21 @@ probably `comminfo.getsize(price, cash * percents / 100)`, which honours
 inherit the same behaviour.
 
 ## Fixed, unreleased
+
+### A CSV feed cannot be given a file-like object
+
+*Found 2026-10-29, writing the option settlement tests; fixed the same day.*
+`GenericCSVData`'s docstring says `dataname` is "the filename to parse or a
+file-like object", and `CSVDataBase.start` does handle an object with
+`readline`. But `MetaCSVDataBase.dopostinit` names the feed from
+`os.path.basename(dataname)` when no `name` is given, and that raises
+`TypeError: expected str, bytes or os.PathLike object, not StringIO`.
+Reproduced on 2026-10-29 with `bt.feeds.GenericCSVData(dataname=io.StringIO(...))`.
+A file-like source is now named after its `.name` attribute when that is a
+path (an open file), and left unnamed otherwise (a `StringIO`).
+`TestFileLikeSources` in `tests/test_feeds.py` failed against the unfixed
+code with that `TypeError`, for a `StringIO` and an open file alike. The
+`name="csv"` workarounds in the options tests are gone.
 
 ### The plot showed no dates, and the wrong ones when made to
 

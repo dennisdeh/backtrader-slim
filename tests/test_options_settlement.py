@@ -46,9 +46,7 @@ def _csv(rows, intraday=False):
         f"{d.strftime(fmt)},{o},{max(o, c)},{min(o, c)},{c},1000,0\n"
         for d, o, c in rows
     )
-    # name=: a CSV feed derives its name from a file path, and fails on a
-    # file-like object without one (OPEN_ITEMS.md)
-    return dict(dataname=io.StringIO(text), dtformat=fmt, headers=True, name="csv")
+    return dict(dataname=io.StringIO(text), dtformat=fmt, headers=True)
 
 
 def underlying(closes, days=DAYS, **kw):
@@ -251,9 +249,7 @@ def test_an_underlying_that_was_never_added_is_an_error():
 
 def test_addoption_names_the_feed_after_the_contract():
     cerebro = bt.Cerebro()
-    data = option(PREM, contract("P"))
-    data._name = ""  # as a feed added without a name
-    cerebro.addoption(data)
+    data = cerebro.addoption(option(PREM, contract("P")))
     assert data._name == "und 2006-03-17 100P"
     assert cerebro.broker.getcommissioninfo(data).p.mult == 100.0
 

@@ -162,6 +162,10 @@ UNRELEASED
     failed against the previous code on 2026-10-29.
 
   FIXES
+  - A CSV feed given a file-like object (io.StringIO, an open file) raised
+    TypeError while naming itself after a path, though its docstring says
+    it reads one. It is now named after the object's file, if it has one,
+    and left unnamed otherwise.
   - A stock-like asset with mult != 1 (an option at 100 per contract) was
     valued at x1 while its position was open and jumped to the x`mult`
     result only when it closed, because profitandloss applied `mult` and

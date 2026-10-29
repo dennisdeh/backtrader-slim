@@ -48,7 +48,6 @@ def quoted_option(quotes, contract):
         dataname=io.StringIO(text),
         dtformat="%Y-%m-%d",
         headers=True,
-        name="csv",
         bid=7,
         ask=8,
         contract=contract,

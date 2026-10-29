@@ -690,7 +690,13 @@ class MetaCSVDataBase(DataBase.__class__):
     def dopostinit(cls, _obj, *args, **kwargs):
         # Before going to the base class to make sure it overrides the default
         if not _obj.p.name and not _obj._name:
-            _obj._name, _ = os.path.splitext(os.path.basename(_obj.p.dataname))
+            source = _obj.p.dataname
+            if not isinstance(source, (str, os.PathLike)):
+                # a file-like object: named after its file, if it has one
+                source = getattr(source, "name", "")
+                if not isinstance(source, (str, os.PathLike)):
+                    source = ""
+            _obj._name, _ = os.path.splitext(os.path.basename(source))
 
         _obj, args, kwargs = super(MetaCSVDataBase, cls).dopostinit(
             _obj, *args, **kwargs
