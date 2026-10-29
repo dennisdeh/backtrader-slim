@@ -369,6 +369,71 @@ section the answer decides.
     scope for now **(R)**; (b) needed.
 23. Which phase from §3 should start first, and is there a deadline?
 
+## 5. Answers (2026-10-29)
+
+The questionnaire was answered in the session chat on 2026-10-29.
+
+| # | answer |
+|---|---|
+| 1 | research backtests only |
+| 2 | US stocks & ETFs, cash-settled indices, futures options, FX/crypto |
+| 3 | American, assignment at expiry only |
+| 4 | both settlement types, declared per contract |
+| 5 | has end-of-day option data with bid/ask |
+| 6 | model mode uses the underlying's realised volatility |
+| 7 | **full chains across many underlyings** |
+| 8 | mid ± a configurable fraction of the spread |
+| 9 | all ten strategy families |
+| 10 | delta hedging with the underlying, triggered by a threshold |
+| 11 | **index-wide, about 500 underlyings** |
+| 12 | options as an overlay on a stock portfolio |
+| 13 | **cash-only margin** |
+| 14 | a margin breach notifies the strategy only |
+| 15 | per-contract fees plus exercise and assignment fees |
+| 16 | interest on cash and dividends on stock |
+| 17 | fix the `mult` defect in `CommInfoBase`, as a recorded API break |
+| 18 | broker changes go into `BackBroker` |
+| 19 | all four: per-position greeks, a portfolio greeks observer, per-structure P&L, P&L attribution |
+| 20 | numpy/scipy allowed behind an optional `options` extra |
+| 21 | **10 years × 500 underlyings in under 30 minutes** |
+| 22 | corporate actions out of scope for now |
+| 23 | start with the `mult` fix plus the A2 core |
+
+### What the answers imply
+
+- **A4 is required, not optional.** Answers 7, 11 and 21 together rule out a
+  data feed per contract as the end state. Here is an estimate built from
+  E6's ~2.4 ms per feed for a 252-bar year. Assume about 3,000 contracts
+  listed per underlying per year. Then 500 underlyings × 10 years is about
+  15 million feeds, and the feed overhead alone, before any strategy logic,
+  comes to roughly 10 hours, against a 30-minute target. The 3,000 is an
+  assumption, not a measurement, and should be checked against the vendor
+  data.
+- **Starting with the `mult` fix and the A2 core (answer 23) is still
+  right**, as long as the pieces are written to carry over to A4: the
+  commission class, the settlement logic, the fee model, and pricing,
+  greeks and IV written as pure functions that A4's chain snapshots can call
+  vectorised (answer 20). The per-contract `OptionData` feed is the one A2
+  piece A4 replaces.
+- **Cash-only margin (13) conflicts with part of the strategy list (9).**
+  Under cash-only, a short call has to be covered by stock and a short put by
+  cash. A naked short call has unlimited risk, so no amount of cash covers
+  it, and the broker would reject it. Short straddles and strangles, ratio
+  spreads, and delta-hedged short volatility all rely on naked or partly
+  covered short calls. One of these needs choosing: (a) reject them under
+  cash-only as specified; (b) add `StrategyBased` margin before those
+  strategies are built; (c) a cash-only variant that counts a short call as
+  covered by stock held anywhere in the overlay (12), or by a long call in
+  the same structure. **Undecided.**
+- **American options exercised only at expiry (3), combined with dividends
+  (16), makes covered calls optimistic.** In-the-money short calls are often
+  assigned early, just before the stock goes ex-dividend, and this model
+  never assigns them early. Record that as a known bias in any
+  covered-call result until early exercise is added.
+- **Multi-leg orders (B2) are needed early.** Ten strategy families (9),
+  threshold-triggered delta hedging (10) and per-structure P&L (19) all assume
+  that legs fill together and are reported as one structure.
+
 ## Appendix: reproduction
 
 The experiment scripts lived in the session scratchpad. Their essentials are
