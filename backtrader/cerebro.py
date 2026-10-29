@@ -23,6 +23,7 @@
 #
 ###############################################################################
 
+import contextlib
 import datetime
 import collections
 import concurrent.futures
@@ -1365,6 +1366,20 @@ class Cerebro(metaclass=MetaParams):
         """
         Internal method invoked by ``run``` to run a set of strategies
         """
+        finished = False
+        try:
+            result = self._runstrategies(iterstrat, predata)
+            finished = True
+            return result
+        finally:
+            # An aborted run still stops the feeds it started, or their files
+            # stay open. A stop that fails too must not hide the first error.
+            if not finished and not predata:
+                for data in self.datas:
+                    with contextlib.suppress(Exception):
+                        data.stop()
+
+    def _runstrategies(self, iterstrat, predata):
         self._init_stcount()
 
         self.runningstrats = runstrats = list()

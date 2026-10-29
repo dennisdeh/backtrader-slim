@@ -161,6 +161,53 @@ class TestEmptyAndMissingInput:
         assert strat.analyzers.tradeanalyzer.get_analysis() is not None
 
 
+class TestAnAbortedRunClosesItsFiles:
+    """A run that raises still stops the feeds it started.
+
+    Cerebro stopped its feeds only after a run that finished, so a parse
+    error, or an exception from a strategy, left each feed's file open.
+    """
+
+    def run(self, data, strategy=bt.Strategy, **kwargs):
+        cerebro = bt.Cerebro(stdstats=False, **kwargs)
+        cerebro.adddata(data)
+        cerebro.addstrategy(strategy)
+        cerebro.run()
+
+    @pytest.mark.parametrize("preload", [True, False])
+    def test_a_parse_error_closes_the_file(self, tmp_path, preload):
+        body = BT_HEADER + BT_ROW + "2006-01-03,abc,2,3,4,0,0\n"
+        data = bt.feeds.BacktraderCSVData(dataname=write(tmp_path, body))
+        with pytest.raises(ValueError):
+            self.run(data, preload=preload)
+        assert data.f is None
+
+    def test_an_exception_from_a_strategy_closes_the_file(self, tmp_path):
+        class Raiser(bt.Strategy):
+            __test__ = False
+
+            def next(self):
+                raise Boom()
+
+        body = BT_HEADER + BT_ROW
+        data = bt.feeds.BacktraderCSVData(dataname=write(tmp_path, body))
+        with pytest.raises(Boom):
+            self.run(data, Raiser, preload=False)
+        assert data.f is None
+
+    def test_the_original_exception_survives_a_failing_stop(self, tmp_path):
+        """Cleanup that fails itself must not replace the error that ended the run."""
+
+        class StopFails(bt.feeds.BacktraderCSVData):
+            def stop(self):
+                super().stop()
+                raise RuntimeError("stop failed")
+
+        body = BT_HEADER + "2006-01-02,abc,2,3,4,0,0\n"
+        with pytest.raises(ValueError):
+            self.run(StopFails(dataname=write(tmp_path, body)))
+
+
 class TestYahooFeedDoesNotFabricateData:
     """The bare `except:` around the volume field used to invent a 0.0."""
 

@@ -8,7 +8,7 @@ What is tested, how it is selected, and what it costs.
 
 ```shell
 conda activate backtrader
-pytest                  # 639 tests, ~85 s (2026-10-29)
+pytest                  # 643 tests, ~85 s (2026-10-29)
 pytest --cov            # adds coverage, ~4 min
 pytest -m "not plotting"   # skip the 13 matplotlib rendering tests
 ```
@@ -126,7 +126,7 @@ is now in CLAUDE.md.
 | `test_concurrency.py` | 21 | the optimization executors, `ObjectCache`, concurrent cerebros |
 | `test_position.py` | 26 | size/price arithmetic, every branch of `set` and `update` |
 | `test_trade.py` | 21 | the trade lifecycle, both directions, `TradeHistory` |
-| `test_chaos.py` | 83 | malformed input, raising callbacks, nonsense orders, `Store` |
+| `test_chaos.py` | 87 | malformed input, raising callbacks, nonsense orders, `Store` |
 
 ## The golden-value contract
 

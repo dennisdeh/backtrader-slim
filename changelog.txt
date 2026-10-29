@@ -167,6 +167,10 @@ UNRELEASED
     failed against the previous code on 2026-10-29.
 
   FIXES
+  - A run that raised (a malformed CSV row, an exception in a strategy)
+    never stopped its data feeds, so their files stayed open. Cerebro now
+    stops them when a run does not finish, and still raises the error that
+    ended it.
   - DataFilter and DataFiller start the feed they wrap but never stopped
     it, so a wrapped feed that was not preloaded kept its file open after
     the run (a ResourceWarning). Their stop() now stops it.

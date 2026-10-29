@@ -12,6 +12,19 @@ move out of this file; things that turn out to be deliberate move to
 
 ## Fixed, unreleased
 
+### An aborted run left its feeds' files open
+
+*Found 2026-10-29, running the suite under `-W error::ResourceWarning`; fixed
+the same day.* `Cerebro.runstrategies` stopped its data feeds only after a run
+that finished. A parse error in a CSV feed, or an exception from a strategy,
+left every feed it had started open, with its file: 15 `ResourceWarning`s
+across `tests/test_chaos.py`. The feeds are now stopped in a `finally` when a
+run does not finish; a `stop()` that fails as well is suppressed, so the
+error that ended the run is the one raised. The tests are
+`TestAnAbortedRunClosesItsFiles` in `tests/test_chaos.py`; against the unfixed
+code, 3 of the 4 failed (the fourth checks the suppression). The whole suite
+now runs clean under `-W error::ResourceWarning`.
+
 ### Data wrappers left their wrapped feed's file open
 
 *Found 2026-10-29, running `tests/test_filters_sizers.py` under `-W error`;
