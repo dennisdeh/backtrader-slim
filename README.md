@@ -167,12 +167,21 @@ residual, and trading costs.
 at the bid/ask instead of the open: mid plus half of the half-spread when
 buying, minus it when selling (0 is mid, 1 crosses the spread).
 
+For whole chains, `bt.options.OptionChain` holds one underlying's chain
+per day as columns and hands out a lightweight `ContractView` only for the
+contracts a strategy picks: `chain.select("P", dte=(20, 50), delta=-0.30)`.
+Chains come from a pandas DataFrame (`PandasChainSource`), loaded a year or
+a month at a time (`PartitionedChainSource`), from a CSV file
+(`CSVChainSource`), or from a model (`ModelChainSource`). Add one with
+`cerebro.addchain(chain)` and reach it with `self.getchain(name)`. It needs
+numpy: `pip install slim-backtrader[options]`.
+
 Not yet: early exercise of American options, and a rule-based (Reg-T)
 margin model. See `reports/sessions/2026-10-29_options-design.md`.
 
 ## Examples
 
-[`examples/`](examples/README.md) holds 21 runnable scripts, one per part of
+[`examples/`](examples/README.md) holds 22 runnable scripts, one per part of
 backtesting: data feeds, indicators, every order type, sizers, commissions,
 analyzers, plotting, optimisation, multi-asset portfolios, signals,
 timeframes, and options. Each runs offline on the data in `datas/`, and the

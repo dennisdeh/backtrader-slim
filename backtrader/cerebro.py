@@ -323,6 +323,7 @@ class Cerebro(metaclass=MetaParams):
         self.feeds = list()
         self.datas = list()
         self.datasbyname = collections.OrderedDict()
+        self.chains = collections.OrderedDict()
         self.strats = list()
         self.optcbs = list()  # holds a list of callbacks for opt strategies
         self.observers = list()
@@ -874,6 +875,28 @@ class Cerebro(metaclass=MetaParams):
         self.adddata(data, name=name)
         self.broker.addcommissioninfo(comminfo, name=name)
         return data
+
+    def addchain(self, chain, name=None, comminfo=None):
+        """Adds a ``bt.options.OptionChain``. Its underlying's feed must be
+        added too, under the name its contracts refer to. ``name`` (def:
+        the underlying's name) is what ``Strategy.getchain`` takes;
+        ``comminfo`` (def: an ``OptionCommInfo`` with the chain's
+        multiplier) is registered for every contract the chain hands out.
+        """
+        from .options import OptionCommInfo
+
+        if comminfo is None:
+            comminfo = OptionCommInfo(mult=chain.multiplier)
+        elif comminfo.p.mult != chain.multiplier:
+            raise ValueError(
+                f"comminfo mult {comminfo.p.mult} is not the chain's "
+                f"multiplier {chain.multiplier}"
+            )
+        chain.name = name or chain.underlying._name
+        chain.comminfo = comminfo
+        chain._cerebro = self
+        self.chains[chain.name] = chain
+        return chain
 
     def chaindata(self, *args, **kwargs):
         """

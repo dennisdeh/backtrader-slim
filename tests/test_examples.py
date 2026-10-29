@@ -55,7 +55,7 @@ def _param(path):
 
 
 def test_the_examples_are_there():
-    assert len(EXAMPLES) >= 21
+    assert len(EXAMPLES) >= 22
 
 
 @pytest.mark.parametrize("path", [_param(p) for p in EXAMPLES])

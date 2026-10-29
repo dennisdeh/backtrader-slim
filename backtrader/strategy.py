@@ -799,6 +799,10 @@ class Strategy(StrategyBase, metaclass=MetaStrategy):
         """
         return self.env.datasbyname[name]
 
+    def getchain(self, name):
+        """Returns the ``bt.options.OptionChain`` added under ``name``"""
+        return self.env.chains[name]
+
     def cancel(self, order):
         """Cancels the order in the broker"""
         self.broker.cancel(order)

@@ -44,7 +44,7 @@ conda activate backtrader
   there or document it.
 - Install editable from the repo root: `pip install -e ".[dev]"`. The engine has
   **no runtime dependencies**; everything optional is an extra declared in
-  `pyproject.toml` (`plotting`, `pandas`, `online`, `calendars`, `talib`, `dev`).
+  `pyproject.toml` (`plotting`, `pandas`, `online`, `calendars`, `talib`, `options`, `dev`).
 - **Python 3.13 is the floor.** Do not write code that must also run on an older
   interpreter, and delete compatibility shims on sight rather than preserving them.
 - A fresh clone needs exactly two things: the conda env, and `pip install -e ".[dev]"`.
@@ -168,7 +168,7 @@ And what bounds it:
 
 - `pytest` from the repository root — **in the foreground, with a bounded
   timeout.** Do not background the runner or spawn polling loops.
-- **601 tests, ~90 s** (2026-10-29, Python 3.13). `pytest --cov` adds
+- **621 tests, ~90 s** (2026-10-29, Python 3.13). `pytest --cov` adds
   coverage and takes ~4 min; coverage is 72% counting branches.
   **Report exact pass/fail counts.** "Tests pass" without numbers is not a
   report.

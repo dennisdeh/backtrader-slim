@@ -24,15 +24,15 @@ UNRELEASED
     result is identical.                                            (FIXES)
 
   EXAMPLES
-  - examples/: 21 runnable scripts covering data feeds, indicators, order
+  - examples/: 22 runnable scripts covering data feeds, indicators, order
     types, brackets and OCO, target orders and sizers, commissions and
     slippage, analyzers, observers and plotting, optimisation, a
     multi-stock rotation on a timer, signals, timeframes and replay,
     options pricing, a covered call, delta hedging, rolling protective
     puts on model-priced contracts, the wheel (cash-secured puts, then
     covered calls), a monthly bull call spread, a book of iron condors as
-    combo orders under CashCovered margin with quote fills, and broker
-    features (short
+    combo orders under CashCovered margin with quote fills, puts picked by
+    delta from whole option chains, and broker features (short
     interest, deposits and fund returns, cheat-on-open, the CSV writer). tests/test_examples.py runs every one;
     the sdist ships them.
 
@@ -116,6 +116,28 @@ UNRELEASED
     a residual, which add up exactly to the change. "other" is the rest
     of the broker's value change: trading, commissions, new positions.
     get_analysis() holds the totals, and per bar under "bars".
+  - Whole option chains (the report's design A4, for questionnaire
+    answers 7, 11 and 21): bt.options.OptionChain holds one underlying's
+    chain for the day as numpy columns, and hands out a ContractView, a
+    stand-in for a data feed, only for the contracts a strategy picks
+    (chain.select by delta or moneyness within a days-to-expiry window,
+    chain.contract, chain.expiries, chain.strikes). Sources:
+    PandasChainSource, PartitionedChainSource (a year or a month in
+    memory at a time), CSVChainSource (stdlib, slow) and
+    ModelChainSource. Cerebro.addchain(chain, name=None, comminfo=None)
+    and Strategy.getchain(name). numpy is required for chains, from the
+    new "options" extra; importing backtrader still imports nothing
+    optional.
+  - Measured on 2026-10-29 on 4 cores, one process, with synthetic daily
+    chains of 976 contracts per underlying: 0.70 ms per underlying-day
+    with a 0-60 day window, and 1.13 ms without. For 500 underlyings over
+    10 years that is about 15 and 24 minutes. The script is in
+    reports/sessions/2026-10-29_options-design.md.
+  - StructureTrades waited for nothing after a physical exercise: the
+    option leg left a lone call's structure flat, which closed it before
+    the delivery arrived. It now stays open until the delivery. It also
+    finds a delivery's option among the feeds it saw orders on, since a
+    chain's contract is no cerebro feed.
   - Not yet: early exercise, a Reg-T margin model.
 
   PLOTTING
