@@ -28,7 +28,6 @@ import collections
 import datetime
 import math
 import operator
-import sys
 
 import matplotlib
 import numpy as np  # guaranteed by matplotlib
@@ -38,7 +37,7 @@ import matplotlib.ticker as mticker
 from .. import AutoInfoClass, MetaParams, TimeFrame, date2num
 
 from .finance import plot_candlestick, plot_ohlc, plot_volume, plot_lineonclose
-from .formatters import MyVolFormatter, MyDateFormatter, getlocator
+from .formatters import MyVolFormatter, MyDateFormatter
 from . import locator as loc
 from .multicursor import MultiCursor
 from .scheme import PlotScheme
@@ -67,7 +66,9 @@ class PInfo(object):
         self.prop = mfontmgr.FontProperties(size=self.sch.subtxtsize)
 
     def newfig(self, figid, numfig, mpyplot):
-        fig = mpyplot.figure(figid + numfig)
+        # clear: pyplot hands back an existing figure of the same number, and
+        # a second plot() call would draw over the first one's axes
+        fig = mpyplot.figure(figid + numfig, clear=True)
         self.figs.append(fig)
         self.daxis = collections.OrderedDict()
         self.vaxis = list()
@@ -122,9 +123,7 @@ class Plot_OldSync(metaclass=MetaParams):
             **kwargs,
         )
 
-    def plot(
-        self, strategy, figid=0, numfigs=1, iplot=True, start=None, end=None, **kwargs
-    ):
+    def plot(self, strategy, figid=0, numfigs=1, start=None, end=None, **kwargs):
         # pfillers={}):
         if not strategy.datas:
             return
@@ -132,11 +131,6 @@ class Plot_OldSync(metaclass=MetaParams):
         if not len(strategy):
             return
 
-        if iplot:
-            if "ipykernel" in sys.modules:
-                matplotlib.use("Agg")
-
-        # this import must not happen before matplotlib.use
         import matplotlib.pyplot as mpyplot
 
         self.mpyplot = mpyplot
@@ -263,7 +257,7 @@ class Plot_OldSync(metaclass=MetaParams):
                 hspace=self.pinf.sch.plotdist,
                 top=0.98,
                 left=0.05,
-                bottom=0.05,
+                bottom=max(0.05, 0.5 / fig.get_figheight()),  # date labels + year
                 right=0.95,
             )
 
@@ -280,17 +274,14 @@ class Plot_OldSync(metaclass=MetaParams):
 
             self.setlocators(lastax)  # place the locators/fmts
 
-            # Applying fig.autofmt_xdate if the data axis is the last one
-            # breaks the presentation of the date labels. why?
-            # Applying the manual rotation with setp cures the problem
-            # but the labels from all axis but the last have to be hidden
+            # Dates only under the lowest axis. tick_params persists across
+            # redraws; setting visibility on the label Text objects did not,
+            # and left every axis without dates.
             for ax in laxis:
-                self.mpyplot.setp(ax.get_xticklabels(), visible=False)
+                ax.tick_params(axis="x", labelbottom=False)
 
-            self.mpyplot.setp(
-                lastax.get_xticklabels(),
-                visible=True,
-                rotation=self.pinf.sch.tickrotation,
+            lastax.tick_params(
+                axis="x", labelbottom=True, labelrotation=self.pinf.sch.tickrotation
             )
 
             # Things must be tight along the x axis (to fill both ends)
@@ -327,18 +318,19 @@ class Plot_OldSync(metaclass=MetaParams):
         else:
             fmtdata = self.pinf.sch.fmt_x_data
 
-        fordata = MyDateFormatter(self.pinf.xreal, fmt=fmtdata)
+        tz = getattr(clock, "_tz", None)
+        fordata = MyDateFormatter(self.pinf.xreal, fmt=fmtdata, tz=tz)
         for dax in self.pinf.daxis.values():
             dax.fmt_xdata = fordata
 
-        # Major locator / formatter
-        locmajor = loc.AutoDateLocator(self.pinf.xreal)
+        # Daily and longer bars are stamped at the session end; tick on dates
+        daily = TimeFrame.Days <= tframe <= TimeFrame.Years
+        xmpl = loc.bars_to_mpl(self.pinf.xreal, tz=tz, floor_to_day=daily)
+        locmajor = loc.DateIndexLocator(xmpl)
         ax.xaxis.set_major_locator(locmajor)
-        if self.pinf.sch.fmt_x_ticks is None:
-            autofmt = loc.AutoDateFormatter(self.pinf.xreal, locmajor)
-        else:
-            autofmt = MyDateFormatter(self.pinf.xreal, fmt=self.pinf.sch.fmt_x_ticks)
-        ax.xaxis.set_major_formatter(autofmt)
+        ax.xaxis.set_major_formatter(
+            loc.DateIndexFormatter(locmajor, fmt=self.pinf.sch.fmt_x_ticks)
+        )
 
     def calcrows(self, strategy):
         # Calculate the total number of rows
@@ -906,7 +898,15 @@ class Plot_OldSync(metaclass=MetaParams):
             a.set_yscale("log")
 
     def show(self):
-        self.mpyplot.show()
+        """Displays the figures where the backend can: in a window from a
+        script, inline in a notebook. Does nothing on a file-only backend
+        (Agg, PDF, SVG, ...), where pyplot.show() would only warn."""
+        import matplotlib.pyplot as mpyplot
+        from matplotlib.backends import BackendFilter, backend_registry
+
+        fileonly = backend_registry.list_builtin(BackendFilter.NON_INTERACTIVE)
+        if matplotlib.get_backend().lower() not in fileonly:
+            mpyplot.show()
 
     def savefig(self, fig, filename, width=16, height=9, dpi=300, tight=True):
         fig.set_size_inches(width, height)

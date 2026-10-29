@@ -3,7 +3,7 @@
 The code is correct here; it could be better. Nothing in this file is a defect
 — those live in `OPEN_ITEMS.md`.
 
-*Last updated: 2026-08-23*
+*Last updated: 2026-10-29*
 
 ## Performance
 
@@ -152,8 +152,9 @@ the table are branch-inclusive.
 | `brokers/bbroker.py` | 68% | margin calls, interest accrual, futures-style cash |
 | `strategy.py` | 71% | notification paths and multi-data bookkeeping |
 
-`plot/` is largely uncovered by design — one rendering test guards it and the
-backend is forced to `Agg`. `store.py` and the online half of `feeds/yahoo.py`
+`plot/` is still thinly covered. `tests/test_plot.py` (2026-10-29) guards
+the date axis and when figures are shown, but candlesticks, OHLC bars, volume
+overlays and multi-data plots have no direct test. `store.py` and the online half of `feeds/yahoo.py`
 cannot be covered without network, which the suite must not need.
 
 ### `talib.py` is untested

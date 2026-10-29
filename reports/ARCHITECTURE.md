@@ -2,7 +2,7 @@
 
 Which part owns what, and what flows between them.
 
-*Last updated: 2026-08-22*
+*Last updated: 2026-10-29*
 
 ## The one idea to understand first
 
@@ -58,7 +58,8 @@ rest of the codebase legible; reading them last makes it look like magic.
 - **`indicators/`** — 122 indicators, each with a `next()` and usually a
   vectorised `once()`.
 - **`analyzers/`, `observers/`, `writer.py`** — read-only consumers of a run.
-- **`plot/`** — matplotlib rendering, forced to the `Agg` backend.
+- **`plot/`** — matplotlib rendering on a gap-free x axis (bar index), with
+  dates mapped onto it by `plot/locator.py`. The backend is matplotlib's choice.
 - **`btrun/`** — the `btrun` console script, a CLI wrapper over Cerebro.
 
 ## Two execution modes

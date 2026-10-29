@@ -247,8 +247,8 @@ class TestWriter:
 class TestPlotting:
     @pytest.mark.plotting
     def test_plot_renders_without_a_display(self):
-        """plot/ is ~1000 statements that nothing exercised. The backend is
-        forced to Agg, so this renders a figure and never opens a window."""
+        """plot/ is ~1000 statements that nothing exercised. conftest pins the
+        Agg backend, so this renders a figure and never opens a window."""
         pytest.importorskip("matplotlib")
         cerebro = bt.Cerebro(stdstats=True)
         cerebro.adddata(csvdata())

@@ -87,8 +87,8 @@ class PlotScheme(object):
         # Each new line is in z-order below the previous one. change it False
         # to have lines paint above the previous line
         self.zdown = True
-        # Rotation of the date labes on the x axis
-        self.tickrotation = 15
+        # Rotation of the date labels on the x axis
+        self.tickrotation = 0
 
         # How many "subparts" takes a major chart (datas) in the overall chart
         # This is proportional to the total number of subcharts
@@ -179,8 +179,10 @@ class PlotScheme(object):
         # Default color scheme: Tableau 10
         self.lcolors = tableau10
 
-        # strftime Format string for the display of ticks on the x axis
-        self.fmt_x_ticks = "%Y-%m-%d %H:%M"
+        # strftime format for the x axis tick labels. None: matplotlib's
+        # concise labels, chosen to suit the span shown (months over a year,
+        # hours within a day) with the year shown once as the axis offset
+        self.fmt_x_ticks = None
 
         # strftime Format string for the display of data points values
         self.fmt_x_data = None

@@ -4,12 +4,87 @@ Places where the code does something other than what it should. Fixed entries
 move out of this file; things that turn out to be deliberate move to
 `DECISIONS.md`.
 
-*Last updated: 2026-08-24*
+*Last updated: 2026-10-29*
 
 ## Open
 
-Nothing. Every item filed during the 2026-08-23 session is fixed and recorded
-below; anything new goes here.
+### `PercentSizer` ignores the commission scheme
+
+*Found 2026-10-29, while fixing the stock-like `mult` item below.*
+`PercentSizer._getsizing` computes `cash / data.close[0] * percents / 100`
+and never asks the `CommInfoBase` what a unit costs. With a ×100 multiplier
+(an option) it asks for 100 times what the cash can pay for, and the order
+comes back `Margin`. Reproduced on 2026-10-29: 50% of 10,000 cash at a price
+of 2.00 sizes 2,500 units, which completes with `mult=1` and is rejected with
+`mult=100`. It ignores a futures-like margin the same way. The fix is
+probably `comminfo.getsize(price, cash * percents / 100)`, which honours
+`mult`, margin and leverage alike. `AllInSizer` and the `*Int` variants
+inherit the same behaviour.
+
+## Fixed, unreleased
+
+### The plot showed no dates, and the wrong ones when made to
+
+*Found and fixed 2026-10-29, when asked to modernise plotting.* Five defects
+in `plot/`, each reproduced before it was fixed:
+
+- **No date labels on any axis.** `Plot.plot` hid every axis's tick labels
+  with `setp(ax.get_xticklabels(), visible=False)`, then re-showed the
+  lowest axis's the same way. Current matplotlib regenerates tick labels on
+  draw and keeps only `tick_params` state, so all of them stayed hidden. The
+  label text was right ("2006-01-31 23:59"), just invisible.
+- **Year 3975 for 2006.** On the `fmt_x_ticks=None` path,
+  `locator.AutoDateFormatter` passed backtrader date numbers (counted from
+  year 1) to matplotlib's `num2date` (counted from 1970 since matplotlib
+  3.3). `732313.99` became `3975-01-04`. The tick *positions* came out
+  plausible only because the locator made the same mistake in both
+  directions.
+- **Month ticks one bar early.** With session-end stamps (`23:59:59`), the
+  first tick landed on 2006-01-31 (index 21) instead of 2006-02-01 (22).
+- **Timezone ignored.** The cursor readout read `09:05` for a bar stored at
+  09:05 UTC on a feed with `tz="America/New_York"`, instead of `04:05`.
+- **Charts stacked.** A second `cerebro.plot()` drew onto the first chart's
+  figure, because `pyplot.figure(0)` returns the existing figure: 4 axes
+  instead of 2.
+
+`tests/test_plot.py` pins all five. Run on 2026-10-29 against the code before
+the fix: `7 failed, 2 passed`; the figure-stacking test, written once the
+full suite exposed the bug, failed with `assert 4 == 2`. With the fix the
+full suite gave 447 passed, 1 skipped (72 s).
+
+### Stock-like commission schemes apply `mult` to P&L but not to cost or value
+
+*Found and fixed 2026-10-29, while investigating options
+(`sessions/2026-10-29_options-design.md`, experiment E1).* `CommInfoBase`'s
+docstring says `mult` is the "multiplier applied to the asset for
+value/profit". On the futures-like branch it was. On the stock-like branch
+(`stocklike=True`), `getoperationcost`, `getvaluesize`, `getvalue` and
+`getsize` ignored it, but `profitandloss` applied it, and
+`BackBroker._execute` added that P&L to cash when a position closes.
+
+Reproduced on 2026-10-29: `setcommission(mult=100, stocklike=True,
+commtype=COMM_FIXED)`. Buy one unit at 2.00 and sell it at 4.00 on a 10,000
+account. The opening took 2.00 of cash instead of 200, and `getvalue()` read
+10000 / 10001 / 10002 while the position is open. When the position closed the
+value jumped to 10200. The final number was right; everything before it was
+wrong by the factor `mult`, and so were the margin dry run in
+`check_submitted` and the sizing in `getsize`.
+
+No test used a stock-like scheme with `mult != 1`; every existing `mult`
+test is futures-like. `samples/commission-schemes` reaches the combination
+with `--commtype perc --stocklike` (`--mult` defaults to 10). Its output was
+identical before and after the fix on 2026-10-29, because it prints only
+order events. The fix multiplies by `mult` in the
+four stock-like branches, in the core rather than in an option-only class
+(question 17 of the options report). It is recorded as an API break in
+`changelog.txt`. Four regression cases in `tests/test_comminfo.py` failed
+against the unfixed code on 2026-10-29 (`4 failed`) and pass with the fix.
+They cover the methods directly, plus a long and a short (with `shortcash`
+both on and off) run through the broker. Full suite afterwards: 437 passed,
+1 skipped in 68 s.
+
+Not changed, and arguably a separate question: a *percentage* commission
+(`COMM_PERC`) is charged on `size * price` without `mult`, on both branches.
 
 ## Fixed in 2.2.0
 

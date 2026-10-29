@@ -1026,11 +1026,14 @@ class Cerebro(metaclass=MetaParams):
         ``numfigs`` split the plot in the indicated number of charts reducing
         chart density if wished
 
-        ``iplot``: if ``True`` and running in a ``notebook`` the charts will be
-        displayed inline
+        ``iplot``: if ``True`` the charts are displayed once drawn - in a
+        window when run as a script, inline in a notebook. Nothing is shown on
+        a file-only backend such as ``Agg`` (a machine without a display).
+        ``False`` only builds the figures and returns them, e.g. to save them
 
-        ``use``: set it to the name of the desired matplotlib backend. It will
-        take precedence over ``iplot``
+        ``use``: the name of a matplotlib backend to switch to before plotting
+        (e.g. ``"QtAgg"``, ``"TkAgg"``, ``"Agg"``). By default matplotlib picks
+        one itself, honouring ``MPLBACKEND`` and ``matplotlibrc``
 
         ``start``: An index to the datetime line array of the strategy or a
         ``datetime.date``, ``datetime.datetime`` instance indicating the start
@@ -1051,6 +1054,11 @@ class Cerebro(metaclass=MetaParams):
         if self._exactbars > 0:
             return
 
+        if use is not None:
+            import matplotlib.pyplot
+
+            matplotlib.pyplot.switch_backend(use)
+
         if not plotter:
             from . import plot
 
@@ -1065,23 +1073,22 @@ class Cerebro(metaclass=MetaParams):
         # pfillers2 = {self.datas[i]: self._plotfillers2[i]
         # for i, x in enumerate(self._plotfillers2)}
 
+        # Figure numbers run across every strategy of every run, so no two
+        # strategies (optimization runs included) draw into one figure
+        strats = [strat for stratlist in self.runstrats for strat in stratlist]
         figs = []
-        for stratlist in self.runstrats:
-            for si, strat in enumerate(stratlist):
-                rfig = plotter.plot(
-                    strat,
-                    figid=si * 100,
-                    numfigs=numfigs,
-                    iplot=iplot,
-                    start=start,
-                    end=end,
-                    use=use,
-                )
-                # pfillers=pfillers2)
+        for si, strat in enumerate(strats):
+            rfig = plotter.plot(
+                strat,
+                figid=si * 100,
+                numfigs=numfigs,
+                start=start,
+                end=end,
+            )
+            figs.append(rfig)
 
-                figs.append(rfig)
-
-            # plotter.show()
+        if iplot:
+            plotter.show()
 
         return figs
 

@@ -36,7 +36,8 @@ class CommInfoBase(metaclass=MetaParams):
         monetary units
 
       - ``mult`` (def ``1.0``): multiplier applied to the asset for
-        value/profit
+        value/profit. Stock-like assets apply it to the operation cost, the
+        position value and ``getsize`` as well (options: 100 per contract)
 
       - ``margin`` (def: ``None``): amount of monetary units needed to
         open/hold an operation. It only applies if the final ``_stocklike``
@@ -195,14 +196,14 @@ class CommInfoBase(metaclass=MetaParams):
         if not self._stocklike:
             return int(self.p.leverage * (cash // self.get_margin(price)))
 
-        return int(self.p.leverage * (cash // price))
+        return int(self.p.leverage * (cash // (price * self.p.mult)))
 
     def getoperationcost(self, size, price):
         """Returns the needed amount of cash an operation would cost"""
         if not self._stocklike:
             return abs(size) * self.get_margin(price)
 
-        return abs(size) * price
+        return abs(size) * price * self.p.mult
 
     def getvaluesize(self, size, price):
         """Returns the value of size for given a price. For future-like
@@ -210,7 +211,7 @@ class CommInfoBase(metaclass=MetaParams):
         if not self._stocklike:
             return abs(size) * self.get_margin(price)
 
-        return size * price
+        return size * price * self.p.mult
 
     def getvalue(self, position, price):
         """Returns the value of a position given a price. For future-like
@@ -220,12 +221,12 @@ class CommInfoBase(metaclass=MetaParams):
 
         size = position.size
         if size >= 0:
-            return size * price
+            return size * price * self.p.mult
 
         # With stocks, a short position is worth more as the price goes down
         value = position.price * size  # original value
         value += (position.price - price) * size  # increased value
-        return value
+        return value * self.p.mult
 
     def _getcommission(self, size, price, pseudoexec):
         """Calculates the commission of an operation at a given price
