@@ -53,7 +53,7 @@ and macOS do for the same 434 tests.
 `CI passed` aggregates the rest, so branch protection needs one rule and a new
 job needs no edit to it.
 
-Three things about the matrix are deliberate:
+Four things about the matrix are deliberate:
 
 - **`fail-fast: false`.** A red platform must not hide the state of the others.
 - **The Linux 3.13 row installs `[dev,calendars]`.** Without
@@ -69,6 +69,14 @@ Three things about the matrix are deliberate:
   optimization tests pass under the `spawn` start method — verified by forcing
   `multiprocessing.set_start_method("spawn")`, which is what macOS and Windows
   use and Linux does not.
+- **macOS runs on a pinned image, `macos-15`, not `macos-latest`.** On
+  2026-10-29, four `macos-latest` jobs in a row (runs #33 and #35, each
+  re-run once) were never given a runner and were cancelled after exactly 15
+  minutes in the queue, with no log and no reason recorded; the last one to
+  run had passed at 14:44 UTC. The repository is public, so it was not
+  billing, and the workflow sets no timeout. Every other job was green. A
+  pinned image also means a new macOS release reaches the gate only when the
+  pin is moved deliberately, as Black's version is.
 
 ## What the artefact job checks that the suite cannot
 

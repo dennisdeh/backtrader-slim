@@ -71,8 +71,10 @@ jobs:
           - { os: ubuntu-latest, python-version: "3.13", extras: "dev,calendars" }
           - { os: ubuntu-latest, python-version: "3.14", extras: "dev" }
           # pyproject.toml claims "Operating System :: OS Independent"; these
-          # two rows are what makes that claim checkable.
-          - { os: macos-latest, python-version: "3.13", extras: "dev" }
+          # two rows are what makes that claim checkable. macOS is pinned to an
+          # image rather than macos-latest, whose jobs went unscheduled and were
+          # cancelled; see reports/TESTING_SUITE.md.
+          - { os: macos-15, python-version: "3.13", extras: "dev" }
           - { os: windows-latest, python-version: "3.13", extras: "dev" }
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
