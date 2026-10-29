@@ -479,9 +479,12 @@ The questionnaire was answered in the session chat on 2026-10-29.
     condors' twelve results sum to the account's gain, 7,257.89 on
     2026-10-29.
   - 19 tests. Full suite 2026-10-29: 582 passed, 1 skipped.
+- **Quote fills (answer 8):** done on branch `options-fills`, stacked on
+  `options-margin`. `broker.set_quotefill(fraction)` fills at mid ± that
+  fraction of the half-spread. Example 21 now quotes a 6% spread and fills
+  halfway, which cut its 2006 gain from 7,257.89 to 6,691.88. 14 tests;
+  full suite 2026-10-29: 596 passed, 1 skipped.
 - **Deferred, and where each belongs:**
-  - fills at mid ± a fraction of the spread (answer 8), which needs a
-    broker fill model;
   - a Reg-T `StrategyBased` margin model, which the report recommended
     and answer 13 passed over for cash-only;
   - P&L attribution by greek (answer 19), the analytics left after

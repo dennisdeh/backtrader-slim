@@ -8,7 +8,7 @@ What is tested, how it is selected, and what it costs.
 
 ```shell
 conda activate backtrader
-pytest                  # 583 tests, ~89 s (2026-10-29)
+pytest                  # 597 tests, ~90 s (2026-10-29)
 pytest --cov            # adds coverage, ~4 min
 pytest -m "not plotting"   # skip the 13 matplotlib rendering tests
 ```
@@ -106,6 +106,7 @@ is now in CLAUDE.md.
 | `test_cerebro.py` | 23 | running, optimisation, resampling, timers, writer, plotting, the btrun CLI |
 | `test_options_pricing.py` | 23 | pricing against Hull's worked examples, parity, tree convergence, greeks by finite differences, implied volatility |
 | `test_options_settlement.py` | 28 | option positions through cerebro: valuation, commission, cash and physical settlement, assignment, intraday expiry |
+| `test_options_fills.py` | 14 | quote fills: mid +/- a fraction of the spread, by side, cheat-on-close, close orders, combos, missing quotes |
 | `test_options_combos.py` | 19 | the `CashCovered` rules, margin at submission and after a bar, combo orders filling whole or not at all, `PortfolioGreeks`, `StructureTrades` |
 | `test_options_model.py` | 25 | `ModelOptionData` against prices and realised volatility recomputed from the CSV, listing, moneyness, all run modes, settlement |
 | `test_ind_optiongreeks.py` | 18 | `OptionGreeks` in all twelve run modes against a fixture priced at 20% volatility, and the fixture against its generator |

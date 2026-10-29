@@ -31,7 +31,8 @@ UNRELEASED
     options pricing, a covered call, delta hedging, rolling protective
     puts on model-priced contracts, the wheel (cash-secured puts, then
     covered calls), a monthly bull call spread, a book of iron condors as
-    combo orders under CashCovered margin, and broker features (short
+    combo orders under CashCovered margin with quote fills, and broker
+    features (short
     interest, deposits and fund returns, cheat-on-open, the CSV writer). tests/test_examples.py runs every one;
     the sdist ships them.
 
@@ -101,7 +102,14 @@ UNRELEASED
     deliveries, and reports its worst and best marked-to-market result.
   - Settlement legs also carry order.info.option, the name of the option
     they settle, so a delivery can be traced to its contract.
-  - Not yet: early exercise, fills at bid/ask, a Reg-T margin model.
+  - Fills at the quote: broker.set_quotefill(fraction), the BackBroker
+    param quotefill (default None, off). Market and close orders, and
+    combo legs, on a feed with bid/ask lines then fill at mid plus
+    fraction x half the spread when buying, minus it when selling. The
+    quote is the execution bar's, or with cheat-on-close the creation
+    bar's. A bar missing either quote fills as before. Limit and stop
+    orders are unchanged.
+  - Not yet: early exercise, a Reg-T margin model.
 
   PLOTTING
   - The x axis showed no dates at all. Every axis hid its tick labels and

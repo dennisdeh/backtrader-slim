@@ -38,8 +38,11 @@ cash covers a naked short call.
 every bar, and ``StructureTrades`` reports each condor's profit as one
 result rather than four.
 
-The contracts are model-priced (``ModelOptionData``). Selling options at
-model prices flatters the result: no skew, no spread.
+The contracts are model-priced (``ModelOptionData``), quoted with a
+spread of 6% of the price, and the broker fills every order halfway
+from mid to the far side of the quote (``set_quotefill(0.5)``): buying
+pays half the spread over mid, selling receives half of it under. Model
+prices still flatter selling options: there is no skew.
 
 Run it:  python examples/21_options_book.py [--plot]
 """
@@ -119,11 +122,13 @@ def main(plot=False):
                     moneyness=moneyness,
                     strikestep=10,
                     rate=0.03,
+                    spread=0.06,
                 ),
                 comminfo=OptionCommInfo(commission=0.65),
             )
     cerebro.broker.setcash(100_000.0)
     cerebro.broker.set_margin_model(CashCovered())
+    cerebro.broker.set_quotefill(0.5)
     cerebro.addobserver(PortfolioGreeks, rate=0.03)
     cerebro.addanalyzer(StructureTrades, _name="condors")
     cerebro.addstrategy(IronCondor)

@@ -26,6 +26,7 @@
 import collections
 import datetime
 import itertools
+import math
 
 import backtrader as bt
 from backtrader.order import Order, BuyOrder, SellOrder
@@ -215,6 +216,14 @@ class BackBroker(bt.BrokerBase):
         the amount of shares. Performance is not measured using the net
         asset value of the porftoflio but using the value of the fund
 
+      - ``quotefill`` (default: ``None``)
+
+        A fraction from 0 to 1. Market and close orders on a feed with
+        ``bid`` and ``ask`` lines (an option feed) then fill at the bar's
+        quote instead of its open or close: mid plus ``quotefill`` times
+        half the spread when buying, minus it when selling. 0 fills at mid,
+        1 crosses the spread. A bar without both quotes fills as before.
+
       - ``fundmode`` (default: ``False``)
 
         If this is set to ``True`` analyzers like ``TimeReturn`` can
@@ -241,6 +250,7 @@ class BackBroker(bt.BrokerBase):
         ("shortcash", True),
         ("fundstartval", 100.0),
         ("fundmode", False),
+        ("quotefill", None),
     )
 
     def __init__(self):
@@ -348,6 +358,29 @@ class BackBroker(bt.BrokerBase):
         self.p.slip_limit = slip_limit
         self.p.slip_match = slip_match
         self.p.slip_out = slip_out
+
+    def set_quotefill(self, fraction):
+        """Fills market and close orders on feeds with bid/ask at the quote:
+        mid +/- ``fraction`` of half the spread (``None``: off)."""
+        if fraction is not None and not 0.0 <= fraction <= 1.0:
+            raise ValueError(f"quotefill is a fraction from 0 to 1, not {fraction}")
+        self.p.quotefill = fraction
+
+    def _quote_price(self, order, ago):
+        """The quote-based fill for ``order`` from the bar ``ago`` bars back,
+        or ``None`` when quote fills are off or the bar has no usable quote."""
+        fraction = self.p.quotefill
+        if fraction is None:
+            return None
+        lines = order.data.lines
+        try:
+            bid, ask = lines.bid[ago], lines.ask[ago]
+        except AttributeError:
+            return None  # no bid/ask lines: not a quoted feed
+        if not (math.isfinite(bid) and math.isfinite(ask)) or ask < bid:
+            return None
+        mid, half = 0.5 * (bid + ask), 0.5 * (ask - bid)
+        return mid + fraction * half if order.isbuy() else mid - fraction * half
 
     def set_filler(self, filler):
         """Sets a volume filler for volume filling execution"""
@@ -693,6 +726,10 @@ class BackBroker(bt.BrokerBase):
                 continue
             for leg in legs:
                 d = leg.data
+                quote = self._quote_price(leg, 0)
+                if quote is not None:
+                    self._execute(leg, ago=0, price=quote, force=True)
+                    continue
                 if leg.isbuy():
                     price = self._slip_up(d.high[0], d.open[0], doslip=self.p.slip_open)
                 else:
@@ -1133,7 +1170,11 @@ class BackBroker(bt.BrokerBase):
             dtcoc = None
             exprice = popen
 
-        if order.isbuy():
+        # cheat-on-close fills at the creation bar's close: its quote too
+        quote = self._quote_price(order, -1 if dtcoc is not None else 0)
+        if quote is not None:
+            p = quote
+        elif order.isbuy():
             p = self._slip_up(phigh, exprice, doslip=self.p.slip_open)
         else:
             p = self._slip_down(plow, exprice, doslip=self.p.slip_open)
@@ -1160,6 +1201,9 @@ class BackBroker(bt.BrokerBase):
                     ago = 0
                     execprice = pclose
 
+                quote = self._quote_price(order, ago)
+                if quote is not None:
+                    execprice = quote
                 self._execute(order, ago=ago, price=execprice)
                 return
 

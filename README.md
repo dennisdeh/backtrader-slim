@@ -161,8 +161,12 @@ uncovered, and reports a shortfall after a bar to the strategy's
 book's greeks in money, and `bt.options.StructureTrades` (an analyzer)
 reports each combo's profit as one result.
 
-Not yet: early exercise of American options, fills at the bid/ask, and a
-rule-based (Reg-T) margin model. See `reports/sessions/2026-10-29_options-design.md`.
+`broker.set_quotefill(0.5)` fills market and close orders on quoted feeds
+at the bid/ask instead of the open: mid plus half of the half-spread when
+buying, minus it when selling (0 is mid, 1 crosses the spread).
+
+Not yet: early exercise of American options, and a rule-based (Reg-T)
+margin model. See `reports/sessions/2026-10-29_options-design.md`.
 
 ## Examples
 
