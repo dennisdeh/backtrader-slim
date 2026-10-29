@@ -29,11 +29,16 @@ through :data:`DATAS_PATH` so tests can be run from any working directory.
 """
 
 import datetime
+import os
 from pathlib import Path
 
 import pytest
 
 import backtrader as bt
+
+# matplotlib picks a GUI backend wherever a display exists, and cerebro.plot()
+# shows the figures on one. The suite must never open a window or block.
+os.environ["MPLBACKEND"] = "Agg"
 
 DATAS_PATH = Path(__file__).resolve().parent.parent / "datas"
 

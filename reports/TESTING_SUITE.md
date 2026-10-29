@@ -2,15 +2,15 @@
 
 What is tested, how it is selected, and what it costs.
 
-*Last updated: 2026-08-24*
+*Last updated: 2026-10-29*
 
 ## Running it
 
 ```shell
 conda activate backtrader
-pytest                  # 434 tests, ~50 s
+pytest                  # 448 tests, ~70 s (2026-10-29)
 pytest --cov            # adds coverage, ~4 min
-pytest -m "not plotting"   # skip the two matplotlib rendering tests
+pytest -m "not plotting"   # skip the 12 matplotlib rendering tests
 ```
 
 `pytest` is configured in `pyproject.toml`: `testpaths = ["tests"]`, so it runs
@@ -104,6 +104,7 @@ is now in CLAUDE.md.
 | `test_ind_*.py` (70 files) | 70 | golden-value regressions, one per indicator |
 | `test_analyzers.py` | 30 | every built-in analyzer |
 | `test_cerebro.py` | 23 | running, optimisation, resampling, timers, writer, plotting, the btrun CLI |
+| `test_plot.py` | 10 | the date axis (labels, tick placement, timezone, weekend gaps), when figures are shown, `use=`, fresh figures |
 | `test_utils.py` | 27 | date conversion, AutoDict family, mathsupport, TimeFrame |
 | `test_orders_advanced.py` | 19 | stop/trailing/bracket/OCO orders, order_target_* |
 | `test_broker.py` | 17 | cash and value accounting, order types, commission, slippage |
@@ -145,7 +146,10 @@ numbers against the formula before pasting them in.
 `tests/conftest.py` holds the shared paths and fixtures. Data comes from
 `datas/`, which is tracked, so a fresh clone can run the suite immediately.
 `csvdata()` builds the standard 2006 daily feed; `daily_data`, `weekly_data`,
-`cerebro` and `cerebro_with_data` are the fixtures.
+`cerebro` and `cerebro_with_data` are the fixtures. It also sets
+`MPLBACKEND=Agg` before anything imports matplotlib. `cerebro.plot()` shows
+figures on any GUI backend, so without the pin a developer's machine, or a
+macOS or Windows CI runner, would open windows and block the run.
 
 The `bt.Strategy` subclasses used inside tests are named `TestStrategy` for
 historical reasons and carry `__test__ = False`, because pytest would otherwise

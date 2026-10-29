@@ -76,10 +76,15 @@ The non-obvious ones — where a reasonable reader guesses wrong:
   current bar, `[-1]` the previous one.
 - **`minperiod` is computed by the framework, not declared**, and the tests assert
   it (`chkmin`). If it moves, the change altered when the indicator becomes valid.
-- **`cerebro.plot()` deliberately shows nothing.** `plotter.show()` is commented
-  out and the matplotlib backend is forced to `Agg` (`MacOSX` on darwin) — see
-  `backtrader/plot/__init__.py`. A plot call that returns without a window is the
-  intended non-interactive behaviour, not a bug to fix.
+- **`cerebro.plot()` shows figures wherever the backend can** (since
+  2026-10-29): a window from a script, inline in a notebook, nothing on `Agg`.
+  matplotlib picks the backend; `tests/conftest.py` pins `MPLBACKEND=Agg` so the
+  suite never opens a window or blocks. A test that plots must keep that pin,
+  or pass `iplot=False`.
+- **The plot's x axis is bar indices, not dates.** Backtrader's date numbers
+  count from year 1 and matplotlib's from 1970; mixing them labelled 2006 as
+  3975. Convert through `plot.locator.bars_to_mpl`, never `matplotlib.dates`
+  on raw `datetime` line values.
 - **The GPLv3 header block at the top of every file stays.** This is a GPL fork:
   keep upstream's copyright line and add to it — never replace or drop it, not
   even during a mechanical sweep.

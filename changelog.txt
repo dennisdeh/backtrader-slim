@@ -1,10 +1,48 @@
 UNRELEASED
   API BREAKS
+  - cerebro.plot() shows its figures again (pyplot.show()), in a window from
+    a script or inline in a notebook, unless the backend is file-only (Agg,
+    PDF, SVG, ...). A script that plotted and carried on now waits for the
+    window to close; pass iplot=False to only get the figures back.
+                                                               (PLOTTING)
+  - Importing backtrader.plot no longer forces the Agg (MacOSX) backend.
+    matplotlib chooses: MPLBACKEND, matplotlibrc, or its detection, which
+    falls back to Agg without a display. cerebro.plot(use=...) now switches
+    to the named backend; it used to be accepted and ignored.  (PLOTTING)
+  - PlotScheme defaults: fmt_x_ticks is None (labels adapt to the span
+    shown) instead of "%Y-%m-%d %H:%M", and tickrotation is 0 instead of
+    15. Pass either to plot() to get the old look.                (PLOTTING)
+  - backtrader.plot.locator now holds DateIndexLocator, DateIndexFormatter
+    and bars_to_mpl. Its AutoDateLocator, AutoDateFormatter and RRuleLocator
+    copies of matplotlib 2.x internals are gone, and so are
+    formatters.getlocator, patch_locator and patch_formatter. Plot.plot()
+    no longer takes iplot.                                         (PLOTTING)
   - A stock-like commission scheme (stocklike=True) now applies `mult` to
     the operation cost, the position value and the size it computes, as it
     already did to profit and loss. CommInfoBase.getoperationcost,
     getvaluesize, getvalue and getsize change; with mult=1 (every stock) the
     result is identical.                                            (FIXES)
+
+  PLOTTING
+  - The x axis showed no dates at all. Every axis hid its tick labels and
+    the lowest one tried to re-show them by toggling the label Text
+    objects, which current matplotlib does not keep. tick_params does.
+  - With fmt_x_ticks=None the labels read 3975 for 2006: backtrader's date
+    numbers (from year 1) went through matplotlib's num2date (from 1970).
+    The axis is now built by DateIndexLocator and DateIndexFormatter, which
+    hand matplotlib's own AutoDateLocator and ConciseDateFormatter real
+    dates and map the ticks back onto bar indices.
+  - Month ticks sat one bar early, on the last session of the previous
+    month: daily bars are stamped at the session end, and the old locator
+    compared that against midnight. They now sit on each month's first
+    session.
+  - Labels and the cursor readout ignored the feed's tz and showed the
+    stored UTC; they are now in the feed's timezone.
+  - A second cerebro.plot() in the same process drew its axes on top of
+    the first chart, because pyplot.figure(n) returns the existing figure
+    n. Figures are cleared on reuse, and numbered across all strategies.
+  - Every case above has a test in tests/test_plot.py; seven of them
+    failed against the previous code on 2026-10-29.
 
   FIXES
   - A stock-like asset with mult != 1 (an option at 100 per contract) was

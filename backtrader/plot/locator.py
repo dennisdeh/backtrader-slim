@@ -23,272 +23,122 @@
 #
 ###############################################################################
 
-"""
-Redefine/Override matplotlib locators to make them work with index base x axis
-which can be converted from/to dates
+"""Date ticks for the index-based x axis.
+
+The plot draws bar ``i`` at ``x == i``, so non-trading time leaves no gaps.
+Tick placement and labels therefore have to translate between bar indices and
+dates. Both classes delegate the calendar logic to matplotlib's own
+``AutoDateLocator`` and ``ConciseDateFormatter``, after converting the bars'
+datetimes to matplotlib date numbers. Backtrader's date numbers count from
+year 1, while matplotlib's count from 1970, so the two are never mixed.
 """
 
+import bisect
 import datetime
-import warnings
+import math
 
-from matplotlib.dates import AutoDateLocator as ADLocator
-from matplotlib.dates import RRuleLocator as RRLocator
-from matplotlib.dates import AutoDateFormatter as ADFormatter
+import matplotlib.dates as mdates
+import matplotlib.ticker as mticker
 
-from matplotlib.dates import (
-    HOURS_PER_DAY,
-    MIN_PER_HOUR,
-    SEC_PER_MIN,
-    MONTHS_PER_YEAR,
-    DAYS_PER_WEEK,
-    SEC_PER_HOUR,
-    SEC_PER_DAY,
-    num2date,
-    rrulewrapper,
-    YearLocator,
-    MicrosecondLocator,
-)
+from ..utils import num2date
 
-from dateutil.relativedelta import relativedelta
-import numpy as np
+_UTC = datetime.timezone.utc
 
 
-def _idx2dt(idx, dates, tz):
-    if isinstance(idx, datetime.date):
-        return idx
+def bars_to_mpl(xdates, tz=None, floor_to_day=False):
+    """Matplotlib date numbers for backtrader date numbers ``xdates``.
 
-    ldates = len(dates)
+    The bars' wall-clock time in ``tz`` (the data feed's timezone, or the time
+    as stored when it is ``None``) is kept as naive UTC, so ticks fall on that
+    calendar's boundaries. ``floor_to_day`` drops the session-end time daily
+    and longer bars are stamped with."""
+    out = []
+    for x in xdates:
+        dt = num2date(x, tz=tz)
+        if floor_to_day:
+            dt = dt.replace(hour=0, minute=0, second=0, microsecond=0)
+        out.append(mdates.date2num(dt))
+    return out
 
-    idx = int(round(idx))
-    if idx >= ldates:
-        idx = ldates - 1
-    if idx < 0:
-        idx = 0
 
-    return num2date(dates[idx], tz)
+class DateIndexLocator(mticker.Locator):
+    """Places ticks on calendar boundaries, at the first bar on or after each.
 
+    ``mdates_seq`` holds one matplotlib date number per bar, ascending. After
+    each call, ``nominal`` maps every tick index to the date it stands for:
+    the calendar boundary itself, or the bar's own date when several
+    boundaries fall in one gap (a weekend, an overnight close)."""
 
-class RRuleLocator(RRLocator):
-
-    def __init__(self, dates, o, tz=None):
-        self._dates = dates
-        super(RRuleLocator, self).__init__(o, tz)
-
-    def datalim_to_dt(self):
-        """
-        Convert axis data interval to datetime objects.
-        """
-        dmin, dmax = self.axis.get_data_interval()
-        if dmin > dmax:
-            dmin, dmax = dmax, dmin
-
-        return (
-            _idx2dt(dmin, self._dates, self.tz),
-            _idx2dt(dmax, self._dates, self.tz),
+    def __init__(self, mdates_seq, minticks=3, maxticks=None):
+        self._num = list(mdates_seq)
+        self.datelocator = mdates.AutoDateLocator(
+            tz=_UTC, minticks=minticks, maxticks=maxticks
         )
+        self.nominal = {}
 
-    def viewlim_to_dt(self):
-        """
-        Converts the view interval to datetime objects.
-        """
+    def __call__(self):
         vmin, vmax = self.axis.get_view_interval()
-        if vmin > vmax:
-            vmin, vmax = vmax, vmin
-
-        return (
-            _idx2dt(vmin, self._dates, self.tz),
-            _idx2dt(vmax, self._dates, self.tz),
-        )
+        return self.tick_values(vmin, vmax)
 
     def tick_values(self, vmin, vmax):
-        import bisect
+        nbars = len(self._num)
+        lo, hi = sorted((vmin, vmax))
+        i0 = max(0, math.ceil(lo))
+        i1 = min(nbars - 1, math.floor(hi))
+        if i0 > i1:
+            self.nominal = {}
+            return []
 
-        dtnums = super(RRuleLocator, self).tick_values(vmin, vmax)
-        return [bisect.bisect_left(self._dates, x) for x in dtnums]
+        dmin, dmax = self._num[i0], self._num[i1]
+        if dmin == dmax:
+            self.nominal = {i0: dmin}
+            return [i0]
 
+        hits = {}
+        span = (mdates.num2date(dmin, tz=_UTC), mdates.num2date(dmax, tz=_UTC))
+        for t in self.datelocator.tick_values(*span):
+            if dmin <= t <= dmax:
+                hits.setdefault(bisect.bisect_left(self._num, t), []).append(t)
 
-class AutoDateLocator(ADLocator):
+        self.nominal = {
+            i: ts[0] if len(ts) == 1 else self._num[i] for i, ts in hits.items()
+        }
+        return sorted(self.nominal)
 
-    def __init__(self, dates, *args, **kwargs):
-        self._dates = dates
-        super(AutoDateLocator, self).__init__(*args, **kwargs)
+    def barnum(self, x):
+        """Matplotlib date number of the bar at index ``x`` (clamped)."""
+        return self._num[min(max(int(round(x)), 0), len(self._num) - 1)]
 
-    def datalim_to_dt(self):
-        """
-        Convert axis data interval to datetime objects.
-        """
-        dmin, dmax = self.axis.get_data_interval()
-        if dmin > dmax:
-            dmin, dmax = dmax, dmin
-
-        return (
-            _idx2dt(dmin, self._dates, self.tz),
-            _idx2dt(dmax, self._dates, self.tz),
-        )
-
-    def viewlim_to_dt(self):
-        """
-        Converts the view interval to datetime objects.
-        """
-        vmin, vmax = self.axis.get_view_interval()
-        if vmin > vmax:
-            vmin, vmax = vmax, vmin
-
-        return (
-            _idx2dt(vmin, self._dates, self.tz),
-            _idx2dt(vmax, self._dates, self.tz),
-        )
-
-    def tick_values(self, vmin, vmax):
-        import bisect
-
-        dtnums = super(AutoDateLocator, self).tick_values(vmin, vmax)
-        return [bisect.bisect_left(self._dates, x) for x in dtnums]
-
-    def get_locator(self, dmin, dmax):
-        "Pick the best locator based on a distance."
-        delta = relativedelta(dmax, dmin)
-        tdelta = dmax - dmin
-
-        # take absolute difference
-        if dmin > dmax:
-            delta = -delta
-            tdelta = -tdelta
-
-        # The following uses a mix of calls to relativedelta and timedelta
-        # methods because there is incomplete overlap in the functionality of
-        # these similar functions, and it's best to avoid doing our own math
-        # whenever possible.
-        numYears = float(delta.years)
-        numMonths = (numYears * MONTHS_PER_YEAR) + delta.months
-        numDays = tdelta.days  # Avoids estimates of days/month, days/year
-        numHours = (numDays * HOURS_PER_DAY) + delta.hours
-        numMinutes = (numHours * MIN_PER_HOUR) + delta.minutes
-        numSeconds = np.floor(tdelta.total_seconds())
-        numMicroseconds = np.floor(tdelta.total_seconds() * 1e6)
-
-        nums = [
-            numYears,
-            numMonths,
-            numDays,
-            numHours,
-            numMinutes,
-            numSeconds,
-            numMicroseconds,
-        ]
-
-        use_rrule_locator = [True] * 6 + [False]
-
-        # Default setting of bymonth, etc. to pass to rrule
-        # [unused (for year), bymonth, bymonthday, byhour, byminute,
-        #  bysecond, unused (for microseconds)]
-        byranges = [None, 1, 1, 0, 0, 0, None]
-
-        usemicro = False  # use as flag to avoid raising an exception
-
-        # Loop over all the frequencies and try to find one that gives at
-        # least a minticks tick positions.  Once this is found, look for
-        # an interval from an list specific to that frequency that gives no
-        # more than maxticks tick positions. Also, set up some ranges
-        # (bymonth, etc.) as appropriate to be passed to rrulewrapper.
-        for i, (freq, num) in enumerate(zip(self._freqs, nums)):
-            # If this particular frequency doesn't give enough ticks, continue
-            if num < self.minticks:
-                # Since we're not using this particular frequency, set
-                # the corresponding by_ to None so the rrule can act as
-                # appropriate
-                byranges[i] = None
-                continue
-
-            # Find the first available interval that doesn't give too many
-            # ticks
-            for interval in self.intervald[freq]:
-                if num <= interval * (self.maxticks[freq] - 1):
-                    break
-            else:
-                # We went through the whole loop without breaking, default to
-                # the last interval in the list and raise a warning
-                warnings.warn(
-                    "AutoDateLocator was unable to pick an "
-                    "appropriate interval for this date range. "
-                    "It may be necessary to add an interval value "
-                    "to the AutoDateLocator's intervald dictionary."
-                    " Defaulting to {0}.".format(interval)
-                )
-
-            # Set some parameters as appropriate
-            self._freq = freq
-
-            if self._byranges[i] and self.interval_multiples:
-                byranges[i] = self._byranges[i][::interval]
-                interval = 1
-            else:
-                byranges[i] = self._byranges[i]
-
-            # We found what frequency to use
-            break
-        else:
-            if False:
-                raise ValueError(
-                    "No sensible date limit could be found in the " "AutoDateLocator."
-                )
-            else:
-                usemicro = True
-
-        if not usemicro and use_rrule_locator[i]:
-            _, bymonth, bymonthday, byhour, byminute, bysecond, _ = byranges
-
-            rrule = rrulewrapper(
-                self._freq,
-                interval=interval,
-                dtstart=dmin,
-                until=dmax,
-                bymonth=bymonth,
-                bymonthday=bymonthday,
-                byhour=byhour,
-                byminute=byminute,
-                bysecond=bysecond,
-            )
-
-            locator = RRuleLocator(self._dates, rrule, self.tz)
-        else:
-            if usemicro:
-                interval = 1  # not set because the for else: was met
-            locator = MicrosecondLocator(interval, tz=self.tz)
-
-        locator.set_axis(self.axis)
-
-        try:
-            # try for matplotlib < 3.6.0
-            locator.set_view_interval(*self.axis.get_view_interval())
-            locator.set_data_interval(*self.axis.get_data_interval())
-        except Exception as e:
-            try:
-                # try for matplotlib >= 3.6.0
-                self.axis.set_view_interval(*self.axis.get_view_interval())
-                self.axis.set_data_interval(*self.axis.get_data_interval())
-                locator.set_axis(self.axis)
-            except Exception as e:
-                print("Error:", e)
-
-        return locator
+    def num(self, x):
+        """The tick's nominal date if ``x`` is a tick, else its bar's date."""
+        return self.nominal.get(int(round(x)), self.barnum(x))
 
 
-class AutoDateFormatter(ADFormatter):
-    def __init__(self, dates, locator, tz=None, defaultfmt="%Y-%m-%d"):
-        self._dates = dates
-        super(AutoDateFormatter, self).__init__(locator, tz, defaultfmt)
+class DateIndexFormatter(mticker.Formatter):
+    """Labels bar indices with dates.
+
+    With ``fmt`` set, every label is the tick's bar formatted with
+    ``strftime(fmt)``. Without it, labels are matplotlib's concise ones for
+    the calendar boundary each tick marks: only what changes from tick to
+    tick, with the rest (the year, for instance) shown once as the offset."""
+
+    def __init__(self, locator, fmt=None):
+        self.locator = locator
+        self.fmt = fmt
+        self._concise = None
+        if fmt is None:
+            self._concise = mdates.ConciseDateFormatter(locator.datelocator, tz=_UTC)
+
+    def format_ticks(self, values):
+        if self._concise is None:
+            return [
+                mdates.num2date(self.locator.barnum(v), tz=_UTC).strftime(self.fmt)
+                for v in values
+            ]
+        return self._concise.format_ticks([self.locator.num(v) for v in values])
 
     def __call__(self, x, pos=None):
-        """Return the label for time x at position pos"""
-        x = int(round(x))
-        ldates = len(self._dates)
-        if x >= ldates:
-            x = ldates - 1
+        return self.format_ticks([x])[0]
 
-        if x < 0:
-            x = 0
-
-        ix = self._dates[x]
-
-        return super(AutoDateFormatter, self).__call__(ix, pos)
+    def get_offset(self):
+        return "" if self._concise is None else self._concise.get_offset()

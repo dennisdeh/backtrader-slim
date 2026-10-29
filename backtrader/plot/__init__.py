@@ -23,20 +23,13 @@
 #
 ###############################################################################
 
-import sys
-
+# The backend is matplotlib's own choice - MPLBACKEND, matplotlibrc, or its
+# detection (a GUI toolkit if one is usable, Agg when headless, inline in a
+# notebook). cerebro.plot(use=...) overrides it for one call.
 try:
-    import matplotlib
+    import matplotlib  # noqa: F401
 except ImportError:
     raise ImportError("Matplotlib seems to be missing. Needed for plotting support")
-else:
-    touse = "Agg" if sys.platform != "darwin" else "MacOSX"
-    try:
-        matplotlib.use(touse)
-    except Exception:
-        # if another backend has already been loaded, an exception will be
-        # generated and this can be skipped
-        pass
 
 
 from .plot import Plot, Plot_OldSync

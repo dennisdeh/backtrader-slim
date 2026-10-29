@@ -97,15 +97,24 @@ feeds), the pyfolio analyzer, and the blaze, InfluxDB and Quandl feeds. Each
 depended on a package that is abandoned, Python-2-only, or serves an API that
 no longer exists. See `reports/DECISIONS.md`.
 
-## Plotting is non-interactive
+## Plotting
 
-`cerebro.plot()` renders through the `Agg` backend and does not open a window.
-It returns the figures, so save them yourself:
+`cerebro.plot()` draws with matplotlib and shows the result wherever it can:
+in a window when run as a script, inline in a Jupyter notebook. matplotlib
+chooses the backend itself (`MPLBACKEND`, `matplotlibrc`, or its own
+detection); `cerebro.plot(use="QtAgg")` picks one for a call. On a machine
+without a display it falls back to `Agg` and shows nothing. Either way the
+figures are returned, so save them yourself:
 
 ```python
-figs = cerebro.plot(iplot=False)
+figs = cerebro.plot(iplot=False)  # build the figures, do not show them
 figs[0][0].savefig("result.png")
 ```
+
+The x axis has no gaps for nights, weekends or holidays. Its date labels
+follow the span shown: months over a year, hours within a day. The year is
+shown once at the axis end, and times are in the data feed's `tz`. Pass
+`fmt_x_ticks="%Y-%m-%d"` for a fixed format.
 
 ## Running the tests
 

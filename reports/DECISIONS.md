@@ -3,7 +3,7 @@
 Things that were examined and found to be correct, deliberate, or the lesser
 evil. Do not re-open these without new evidence.
 
-*Last updated: 2026-08-24*
+*Last updated: 2026-10-29*
 
 ## Upstream is dormant, and this fork already contains all of it
 
@@ -100,15 +100,23 @@ down" does not apply to them.
 `backtrader/talib.py` is 3% covered and imports `talib`, but TA-Lib is alive and
 maintained, and the import is lazy. It stays, behind the `talib` extra.
 
-## Plotting stays non-interactive
+## Plotting shows figures where the backend can
 
-*2026-08-22*
+*2026-08-22, reversed 2026-10-29*
 
-`plotter.show()` is commented out and the matplotlib backend is forced to `Agg`
-(`MacOSX` on darwin) — a deliberate change made before this work
-(commit `ea3d0d3`). `cerebro.plot()` returning figures without opening a window
-is the intended behaviour. Tests render through it, which is why plotting could
-be covered at all.
+From commit `ea3d0d3` until 2026-10-29, `plotter.show()` was commented out and
+the backend forced to `Agg` (`MacOSX` on darwin). That made the suite able to
+render headless, but it left no way to see a chart without saving it by hand.
+On 2026-10-29 the owner asked for a modern pyplot setup instead. Now:
+
+- matplotlib chooses the backend (`MPLBACKEND`, `matplotlibrc`, detection;
+  `Agg` when there is no display), and `cerebro.plot(use=...)` overrides it.
+- `cerebro.plot()` calls `pyplot.show()` unless the backend is file-only.
+  That is never a hang on a headless machine and never matplotlib's
+  "non-interactive" warning.
+- The suite stays headless through `MPLBACKEND=Agg` in `tests/conftest.py`,
+  not through the library. Do not move that pin back into `backtrader/plot/`:
+  forcing a backend at import time is what broke notebooks and windows alike.
 
 ## AnnualReturn's dependency on the Broker observer
 

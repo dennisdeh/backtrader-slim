@@ -23,6 +23,35 @@ inherit the same behaviour.
 
 ## Fixed, unreleased
 
+### The plot showed no dates, and the wrong ones when made to
+
+*Found and fixed 2026-10-29, when asked to modernise plotting.* Five defects
+in `plot/`, each reproduced before it was fixed:
+
+- **No date labels on any axis.** `Plot.plot` hid every axis's tick labels
+  with `setp(ax.get_xticklabels(), visible=False)`, then re-showed the
+  lowest axis's the same way. Current matplotlib regenerates tick labels on
+  draw and keeps only `tick_params` state, so all of them stayed hidden. The
+  label text was right ("2006-01-31 23:59"), just invisible.
+- **Year 3975 for 2006.** On the `fmt_x_ticks=None` path,
+  `locator.AutoDateFormatter` passed backtrader date numbers (counted from
+  year 1) to matplotlib's `num2date` (counted from 1970 since matplotlib
+  3.3). `732313.99` became `3975-01-04`. The tick *positions* came out
+  plausible only because the locator made the same mistake in both
+  directions.
+- **Month ticks one bar early.** With session-end stamps (`23:59:59`), the
+  first tick landed on 2006-01-31 (index 21) instead of 2006-02-01 (22).
+- **Timezone ignored.** The cursor readout read `09:05` for a bar stored at
+  09:05 UTC on a feed with `tz="America/New_York"`, instead of `04:05`.
+- **Charts stacked.** A second `cerebro.plot()` drew onto the first chart's
+  figure, because `pyplot.figure(0)` returns the existing figure: 4 axes
+  instead of 2.
+
+`tests/test_plot.py` pins all five. Run on 2026-10-29 against the code before
+the fix: `7 failed, 2 passed`; the figure-stacking test, written once the
+full suite exposed the bug, failed with `assert 4 == 2`. With the fix the
+full suite gave 447 passed, 1 skipped (72 s).
+
 ### Stock-like commission schemes apply `mult` to P&L but not to cost or value
 
 *Found and fixed 2026-10-29, while investigating options
