@@ -109,6 +109,13 @@ UNRELEASED
     quote is the execution bar's, or with cheat-on-close the creation
     bar's. A bar missing either quote fills as before. Limit and stop
     orders are unchanged.
+  - bt.options.GreeksAttribution, an analyzer that splits profit by the
+    greeks (questionnaire answer 19). Each position held from one close
+    to the next has its change split, with the greeks at the start of the
+    bar, into delta x dS, 1/2 gamma x dS^2, vega x dsigma, theta x dt and
+    a residual, which add up exactly to the change. "other" is the rest
+    of the broker's value change: trading, commissions, new positions.
+    get_analysis() holds the totals, and per bar under "bars".
   - Not yet: early exercise, a Reg-T margin model.
 
   PLOTTING

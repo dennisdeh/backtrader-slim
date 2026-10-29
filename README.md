@@ -159,7 +159,9 @@ cash, stock or a long option, refuses an order that would leave one
 uncovered, and reports a shortfall after a bar to the strategy's
 `notify_margin`. `bt.options.PortfolioGreeks` (an observer) records the
 book's greeks in money, and `bt.options.StructureTrades` (an analyzer)
-reports each combo's profit as one result.
+reports each combo's profit as one result, and `bt.options.GreeksAttribution`
+splits the book's profit into delta, gamma, vega, theta, an unexplained
+residual, and trading costs.
 
 `broker.set_quotefill(0.5)` fills market and close orders on quoted feeds
 at the bid/ask instead of the open: mid plus half of the half-spread when

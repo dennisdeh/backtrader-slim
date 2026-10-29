@@ -484,11 +484,20 @@ The questionnaire was answered in the session chat on 2026-10-29.
   fraction of the half-spread. Example 21 now quotes a 6% spread and fills
   halfway, which cut its 2006 gain from 7,257.89 to 6,691.88. 14 tests;
   full suite 2026-10-29: 596 passed, 1 skipped.
+- **P&L attribution (answer 19):** done on branch `options-attribution`,
+  stacked on `options-fills`. `GreeksAttribution` splits each held
+  position's close-to-close change into delta, gamma, vega, theta and a
+  residual, with trading costs as "other". On 2026-10-29 it gave:
+  - On a flat market with constant volatility, theta explained 225 of the
+    257 a call lost. The residual is the decay's curvature, missed in
+    one-day steps near expiry.
+  - Example 21's 2006 condors: theta +13,172, gamma -14,541, delta +7,845,
+    vega +3,143, residual -2,733 and other -194, summing to the 6,691.88
+    gain.
+  - 4 tests; full suite 600 passed, 1 skipped.
 - **Deferred, and where each belongs:**
   - a Reg-T `StrategyBased` margin model, which the report recommended
     and answer 13 passed over for cash-only;
-  - P&L attribution by greek (answer 19), the analytics left after
-    phase 4;
   - early exercise, which is out of scope per answer 3;
   - the numpy path for chain-wide pricing (answer 20), which waits for A4.
 - **Known limitation:** a position built under several `tradeid`s settles

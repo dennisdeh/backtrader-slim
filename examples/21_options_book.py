@@ -35,8 +35,10 @@ legs without the long ones). The model refuses it, because no amount of
 cash covers a naked short call.
 
 ``PortfolioGreeks`` records the book's delta, gamma, vega and theta in money
-every bar, and ``StructureTrades`` reports each condor's profit as one
-result rather than four.
+every bar, ``StructureTrades`` reports each condor's profit as one result
+rather than four, and ``GreeksAttribution`` splits the year's profit by
+where it came from: the market's moves (delta, gamma), volatility (vega),
+time (theta), and trading costs (other).
 
 The contracts are model-priced (``ModelOptionData``), quoted with a
 spread of 6% of the price, and the broker fills every order halfway
@@ -54,6 +56,7 @@ from pathlib import Path
 import backtrader as bt
 from backtrader.options import (
     CashCovered,
+    GreeksAttribution,
     ModelOptionData,
     OptionCommInfo,
     OptionContract,
@@ -131,6 +134,7 @@ def main(plot=False):
     cerebro.broker.set_quotefill(0.5)
     cerebro.addobserver(PortfolioGreeks, rate=0.03)
     cerebro.addanalyzer(StructureTrades, _name="condors")
+    cerebro.addanalyzer(GreeksAttribution, _name="attribution", rate=0.03)
     cerebro.addstrategy(IronCondor)
     strat = cerebro.run()[0]
 
@@ -150,6 +154,11 @@ def main(plot=False):
         f"gamma {greeks.gamma.array[i]:,.0f} per 1%, "
         f"vega {greeks.vega.array[i]:,.0f} per vol point, "
         f"theta {greeks.theta.array[i]:+,.0f} per day"
+    )
+    split = strat.analyzers.attribution.get_analysis()
+    print(
+        "the year's profit by source: "
+        + ", ".join(f"{part} {split[part]:+,.0f}" for part in GreeksAttribution.PARTS)
     )
     print(f"final value {cerebro.broker.getvalue():,.2f} from 100,000.00")
     if plot:
