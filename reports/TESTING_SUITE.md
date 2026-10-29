@@ -8,7 +8,7 @@ What is tested, how it is selected, and what it costs.
 
 ```shell
 conda activate backtrader
-pytest                  # 626 tests, ~90 s (2026-10-29)
+pytest                  # 636 tests, ~85 s (2026-10-29)
 pytest --cov            # adds coverage, ~4 min
 pytest -m "not plotting"   # skip the 13 matplotlib rendering tests
 ```
@@ -103,9 +103,9 @@ is now in CLAUDE.md.
 |---|---|---|
 | `test_ind_*.py` (70 files) | 70 | golden-value regressions, one per indicator |
 | `test_analyzers.py` | 30 | every built-in analyzer |
-| `test_cerebro.py` | 23 | running, optimisation, resampling, timers, writer, plotting, the btrun CLI |
+| `test_cerebro.py` | 31 | running, optimisation, resampling, timers, writer, plotting, the btrun CLI |
 | `test_options_pricing.py` | 23 | pricing against Hull's worked examples, parity, tree convergence, greeks by finite differences, implied volatility |
-| `test_options_settlement.py` | 28 | option positions through cerebro: valuation, commission, cash and physical settlement, assignment, intraday expiry |
+| `test_options_settlement.py` | 30 | option positions through cerebro: valuation, commission, cash and physical settlement, assignment, intraday expiry |
 | `test_options_chain.py` | 18 | chain sources (pandas, CSV, partitioned, model), views' bars and gaps, settlement, selection by moneyness and delta, all run modes, margin and quote fills on views; skipped without numpy |
 | `test_options_attribution.py` | 4 | the greek split adds up to the whole gain, theta on a flat market, a stock is all delta, delta on a trend |
 | `test_options_fills.py` | 14 | quote fills: mid +/- a fraction of the spread, by side, cheat-on-close, close orders, combos, missing quotes |

@@ -21,21 +21,44 @@ tests fail, on `master` as well: `test_real_bars_are_untouched`,
 `test_data_filter_delivers_each_bar_once[False]`. The fix is for the
 wrapper's `stop()` to stop its inner feed.
 
-### `exactbars=1` fails once a feed that carried a position ends early
-
-*Found 2026-10-29, testing option settlement in every memory mode.*
-With `exactbars=1`, a data feed's lines keep only the bars they need. Once a
-feed has run out of bars while others continue, `BackBroker._get_value`
-still reads `data.close[0]` for every entry in `self.positions`, including
-a position closed long ago, and raises `IndexError: deque index out of
-range`. Reproduced on 2026-10-29 with two plain stock feeds, five and eight
-bars long, buying and closing on the shorter one: `exactbars=False` gives
-10002.0, `exactbars=1` raises. Nothing option-specific is involved; the same
-script fails with the options work stashed. Options make it common, because
-every contract's feed ends at expiry. `tests/test_options_settlement.py`
-covers `exactbars` -2, -1 and False and leaves 1 out.
-
 ## Fixed, unreleased
+
+### `exactbars=1` lost bars: crashes at a feed's end, wrong values when unaligned
+
+*Found 2026-10-29, testing option settlement in every memory mode; fixed the
+same day.* `exactbars=1` keeps each data line in a deque only as long as its
+minimum period, and it failed in two ways:
+
+- **The current bar was pushed out.** `load()` calls `forward()` to make room
+  for the next bar before it knows whether one will come. In a deque exactly
+  as long as the minimum period, that evicted the current bar. When the feed
+  had none left, `backwards(force=True)` removed the empty slot and nothing
+  remained, so `BackBroker._get_value` read an empty buffer:
+  `IndexError: deque index out of range`. Data feeds now always take the one
+  extra slot (`extrasize=1`) that resampled and replayed feeds already had.
+- **A rewound bar was loaded past.** When a feed's next bar belongs to a
+  later timestamp, cerebro rewinds it, to be delivered later. But `next()`
+  re-delivers a buffered bar only while `len(self) < self.buflen()`, which is
+  never true of a deque that short, so the feed loaded past the waiting bar.
+  On top of that, `LineBuffer.rewind` could not move the index of a full
+  QBuffer. Feeds now count the bars they rewind and re-deliver those first,
+  and the line rewind forces its index. The run-once fill path keeps its
+  line-level rewind, uncounted.
+
+Measured on 2026-10-29 against unbounded buffers, comparing every bar's
+indicators and every feed's bar:
+
+| case | before | after |
+|---|---|---|
+| a feed ending early after a position | `IndexError` | identical |
+| two feeds trading on different days | `IndexError` / `ValueError` | identical |
+| a daily feed with its weekly resample | **silently different from 2006-01-16** | identical |
+| a single feed, aligned feeds, a weekly replay | identical | identical |
+
+The tests are `TestMemorySavingWithFeedsEndingEarly` and
+`test_exactbars_1_sees_what_unbounded_buffers_see` in
+`tests/test_cerebro.py`, and option settlement's mode matrix now includes
+`exactbars=1`. Against the unfixed code, 7 of them failed.
 
 ### `PercentSizer` ignores the commission scheme
 

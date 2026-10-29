@@ -270,7 +270,9 @@ class LineBuffer(LineSingle):
             self.array.pop()
 
     def rewind(self, size=1):
-        self.idx -= size
+        # forced: a rewind undoes a forward and keeps the value, and a full
+        # QBuffer would otherwise refuse to move its index (exactbars=1)
+        self.set_idx(self._idx - size, force=True)
         self.lencount -= size
 
     def advance(self, size=1):

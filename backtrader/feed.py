@@ -326,14 +326,19 @@ class AbstractDataBase(dataseries.OHLCDateTime, metaclass=MetaAbstractDataBase):
         return self._feed
 
     def qbuffer(self, savemem=0, replaying=False):
-        extrasize = self.resampling or replaying
+        # One extra slot, always: load() makes room for the next bar before
+        # knowing whether one will come, and in a buffer exactly as long as
+        # the minimum period that pushed the current bar out. At a feed's
+        # end nothing was left (OPEN_ITEMS.md, fixed 2026-10-29).
+        # Resampling and replaying already needed the slot for the same reason.
         for line in self.lines:
-            line.qbuffer(savemem=savemem, extrasize=extrasize)
+            line.qbuffer(savemem=savemem, extrasize=1)
 
     def start(self):
         self._barstack = collections.deque()
         self._barstash = collections.deque()
         self._laststatus = self.CONNECTED
+        self._rewound = 0  # bars pushed back by rewind(), still to deliver
         # Latest datetime the source has delivered, for the order check in
         # load(). It belongs here rather than in _start_finish(), which runs
         # only once: one data object is routinely replayed through several
@@ -420,7 +425,7 @@ class AbstractDataBase(dataseries.OHLCDateTime, metaclass=MetaAbstractDataBase):
         if datamaster is not None:
             if len(self) > self.buflen():
                 # if no bar can be delivered, fill with an empty bar
-                self.rewind()
+                self.lines.rewind()
                 self.lines.forward()
                 return
 
@@ -434,9 +439,20 @@ class AbstractDataBase(dataseries.OHLCDateTime, metaclass=MetaAbstractDataBase):
             if ticks:
                 self._tick_fill()
 
+    def rewind(self, size=1):
+        """Pushes the current bar back, to be delivered again by ``next``."""
+        super().rewind(size)
+        self._rewound += size
+
     def next(self, datamaster=None, ticks=True):
 
-        if len(self) >= self.buflen():
+        if self._rewound:
+            # a bar pushed back to wait for its time is delivered before any
+            # new one is loaded. len() < buflen() says the same in a full
+            # buffer, but not in a QBuffer, which is always short
+            self._rewound -= 1
+            self.advance(ticks=ticks)
+        elif len(self) >= self.buflen():
             if ticks:
                 self._tick_nullify()
 

@@ -314,10 +314,8 @@ def test_bid_and_ask_are_lines_and_mid_falls_back_to_close():
 
 
 @pytest.mark.parametrize("runonce", [True, False])
-@pytest.mark.parametrize("exactbars", [-2, -1, False])
+@pytest.mark.parametrize("exactbars", [-2, -1, False, 1])
 def test_settlement_is_the_same_in_every_mode(runonce, exactbars):
-    # exactbars=1 is left out: it fails for any feed ending before the
-    # others once it has carried a position (OPEN_ITEMS.md)
     cerebro = bt.Cerebro(stdstats=False, runonce=runonce, exactbars=exactbars)
     cerebro.adddata(underlying(UND_UP), name="und")
     cerebro.addoption(option(PREM, contract()), name="opt")

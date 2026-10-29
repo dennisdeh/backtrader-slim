@@ -293,3 +293,82 @@ class TestBtrunCLI:
 
         with pytest.raises(SystemExit):
             btrun(["--data", datafile("2006-day-001.txt"), "--format", "nope"])
+
+
+class TestMemorySavingWithFeedsEndingEarly:
+    """exactbars=1 keeps a data line as short as its minimum period. Making
+    room for the next bar used to push the current one out before knowing
+    whether a next bar would come; at a feed's end nothing was left, and the
+    broker's valuation read an empty buffer (IndexError)."""
+
+    def _run(self, exactbars, close_on=3):
+        from test_options_settlement import DAYS, UND_UP, underlying
+
+        class Trade(bt.Strategy):
+            def next(self):
+                if len(self) == 1:
+                    self.buy(data=self.datas[1], size=1)
+                if close_on and len(self) == close_on:
+                    self.close(data=self.datas[1])
+
+        cerebro = bt.Cerebro(stdstats=False, exactbars=exactbars)
+        cerebro.adddata(underlying(UND_UP), name="long")
+        cerebro.adddata(underlying(UND_UP[:5], DAYS[:5]), name="short")  # ends early
+        cerebro.addstrategy(Trade)
+        cerebro.run()
+        return cerebro.broker.getvalue()
+
+    def test_a_closed_position_on_an_ended_feed(self):
+        assert self._run(exactbars=1) == self._run(exactbars=False)
+
+    def test_an_open_position_stays_valued_at_its_last_close(self):
+        # bought at bar 2's open (101); the feed's last close is 105: +4
+        assert self._run(exactbars=1, close_on=None) == 10000.0 + 4.0
+        assert self._run(exactbars=False, close_on=None) == 10000.0 + 4.0
+
+
+class _Record(bt.Strategy):
+    def __init__(self):
+        self.inds = [bt.ind.SMA(period=10), bt.ind.EMA(period=8), bt.ind.RSI(period=6)]
+        self.rows = []
+
+    def next(self):
+        self.rows.append(
+            tuple(round(i[0], 9) for i in self.inds)
+            + tuple((d.datetime[0], d.open[0], d.close[0]) for d in self.datas)
+        )
+
+
+MEMORY_CASES = {
+    "single": lambda c: c.adddata(csvdata()),
+    "aligned": lambda c: (c.adddata(csvdata()), c.adddata(csvdata())),
+    # 2006-day-002 trades about every other day
+    "unaligned": lambda c: (
+        c.adddata(csvdata()),
+        c.adddata(csvdata("2006-day-002.txt")),
+    ),
+    "unaligned, sparse first": lambda c: (
+        c.adddata(csvdata("2006-day-002.txt")),
+        c.adddata(csvdata()),
+    ),
+    "resampled weekly": lambda c: (
+        c.adddata(csvdata()),
+        c.resampledata(csvdata(), timeframe=bt.TimeFrame.Weeks),
+    ),
+    "replayed weekly": lambda c: c.replaydata(csvdata(), timeframe=bt.TimeFrame.Weeks),
+}
+
+
+@pytest.mark.parametrize("case", list(MEMORY_CASES))
+def test_exactbars_1_sees_what_unbounded_buffers_see(case):
+    # Every bar's indicators and every feed's current bar, compared with
+    # the unbounded run. Before 2026-10-29 the unaligned cases raised and the
+    # resampled one silently differed from 2006-01-16 on: a rewound bar was
+    # loaded past instead of delivered, because a QBuffer is always "short"
+    rows = {}
+    for exactbars in (False, 1):
+        cerebro = bt.Cerebro(stdstats=False, exactbars=exactbars)
+        MEMORY_CASES[case](cerebro)
+        cerebro.addstrategy(_Record)
+        rows[exactbars] = cerebro.run()[0].rows
+    assert rows[1] == rows[False]

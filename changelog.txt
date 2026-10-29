@@ -167,6 +167,16 @@ UNRELEASED
     failed against the previous code on 2026-10-29.
 
   FIXES
+  - exactbars=1 lost bars. Making room for a bar evicted the current one
+    from a buffer exactly a minimum period long, so a feed that ended
+    before the others left an empty buffer: an IndexError when the broker
+    valued a position on it. A bar rewound to wait for its timestamp was
+    loaded past rather than delivered: feeds trading on different days
+    raised, and a daily feed with its weekly resample gave silently
+    different values from 2006-01-16. Data feeds now keep one extra slot,
+    re-deliver the bars they rewound before loading new ones, and
+    LineBuffer.rewind forces its index. Every bar now matches unbounded
+    buffers in all six cases compared (tests/test_cerebro.py).
   - PercentSizer asked for 100 times what the cash covered on a x100
     contract, and the order came back Margin; for futures it ignored the
     margin. It divides by comminfo.getoperationcost(1, price) now.
