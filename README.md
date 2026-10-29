@@ -151,12 +151,22 @@ previous close. Its strike can be set at listing as a fraction of the
 market (`moneyness=0.95`). Its default name ends in "(model)": model
 prices have no skew and no real spread, which flatters selling options.
 
-Not yet: early exercise of American options, margin for short options, and
-fills at the bid/ask. See `reports/sessions/2026-10-29_options-design.md`.
+Several legs go in as one order with `self.combo([(put, -1), (call, -1),
+...])`: checked together and filled together, or not at all. A margin model
+decides what cash positions must keep: `broker.set_margin_model(
+bt.options.CashCovered())` requires every short option to be covered by
+cash, stock or a long option, refuses an order that would leave one
+uncovered, and reports a shortfall after a bar to the strategy's
+`notify_margin`. `bt.options.PortfolioGreeks` (an observer) records the
+book's greeks in money, and `bt.options.StructureTrades` (an analyzer)
+reports each combo's profit as one result.
+
+Not yet: early exercise of American options, fills at the bid/ask, and a
+rule-based (Reg-T) margin model. See `reports/sessions/2026-10-29_options-design.md`.
 
 ## Examples
 
-[`examples/`](examples/README.md) holds 20 runnable scripts, one per part of
+[`examples/`](examples/README.md) holds 21 runnable scripts, one per part of
 backtesting: data feeds, indicators, every order type, sizers, commissions,
 analyzers, plotting, optimisation, multi-asset portfolios, signals,
 timeframes, and options. Each runs offline on the data in `datas/`, and the

@@ -36,8 +36,8 @@ Both legs are separate orders on separate feeds. The broker checks each one
 against cash on its own, and in the order sent. With too little cash, a
 long leg sent first can be refused while the short leg still fills,
 leaving a naked short call. So this sends the short leg first, whose
-premium helps pay for the long one. Orders that fill all legs or none are
-planned for a later stage.
+premium helps pay for the long one. ``self.combo`` sends the legs as one
+order instead, checked and filled together: see example 21.
 
 Run it:  python examples/20_options_vertical_spread.py
 """

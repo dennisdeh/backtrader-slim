@@ -468,11 +468,24 @@ The questionnaire was answered in the session chat on 2026-10-29.
     Example 17 moved onto the model feed.
   - 26 tests (25 for the feed, 1 for the price floor). Full suite
     2026-10-29: 562 passed, 1 skipped.
+- **Phase 4, combos, margin and the book's view:** done on branch
+  `options-margin`, stacked on `options-model`.
+  - The margin model hook, with the model the questionnaire chose,
+    `CashCovered` (answer 13 and its follow-up). Margin calls only notify
+    (answer 14).
+  - Combo orders: all legs or none.
+  - The `PortfolioGreeks` observer and the `StructureTrades` analyzer
+    (answer 19). Example 21 runs a year of iron condors with all of it. The
+    condors' twelve results sum to the account's gain, 7,257.89 on
+    2026-10-29.
+  - 19 tests. Full suite 2026-10-29: 582 passed, 1 skipped.
 - **Deferred, and where each belongs:**
   - fills at mid ± a fraction of the spread (answer 8), which needs a
     broker fill model;
-  - the cash-only margin with coverage across the portfolio (answer 13 and
-    the margin follow-up), which is phase 4 (B3);
+  - a Reg-T `StrategyBased` margin model, which the report recommended
+    and answer 13 passed over for cash-only;
+  - P&L attribution by greek (answer 19), the analytics left after
+    phase 4;
   - early exercise, which is out of scope per answer 3;
   - the numpy path for chain-wide pricing (answer 20), which waits for A4.
 - **Known limitation:** a position built under several `tradeid`s settles

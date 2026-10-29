@@ -8,7 +8,7 @@ What is tested, how it is selected, and what it costs.
 
 ```shell
 conda activate backtrader
-pytest                  # 563 tests, ~85 s (2026-10-29)
+pytest                  # 583 tests, ~89 s (2026-10-29)
 pytest --cov            # adds coverage, ~4 min
 pytest -m "not plotting"   # skip the 13 matplotlib rendering tests
 ```
@@ -106,9 +106,10 @@ is now in CLAUDE.md.
 | `test_cerebro.py` | 23 | running, optimisation, resampling, timers, writer, plotting, the btrun CLI |
 | `test_options_pricing.py` | 23 | pricing against Hull's worked examples, parity, tree convergence, greeks by finite differences, implied volatility |
 | `test_options_settlement.py` | 28 | option positions through cerebro: valuation, commission, cash and physical settlement, assignment, intraday expiry |
+| `test_options_combos.py` | 19 | the `CashCovered` rules, margin at submission and after a bar, combo orders filling whole or not at all, `PortfolioGreeks`, `StructureTrades` |
 | `test_options_model.py` | 25 | `ModelOptionData` against prices and realised volatility recomputed from the CSV, listing, moneyness, all run modes, settlement |
 | `test_ind_optiongreeks.py` | 18 | `OptionGreeks` in all twelve run modes against a fixture priced at 20% volatility, and the fixture against its generator |
-| `test_examples.py` | 21 | every script in `examples/` runs and prints something; skips one whose `REQUIRES` package is missing |
+| `test_examples.py` | 22 | every script in `examples/` runs and prints something; skips one whose `REQUIRES` package is missing |
 | `test_plot.py` | 10 | the date axis (labels, tick placement, timezone, weekend gaps), when figures are shown, `use=`, fresh figures |
 | `test_utils.py` | 27 | date conversion, AutoDict family, mathsupport, TimeFrame |
 | `test_orders_advanced.py` | 19 | stop/trailing/bracket/OCO orders, order_target_* |

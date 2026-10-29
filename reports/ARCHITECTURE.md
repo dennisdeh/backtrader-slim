@@ -121,6 +121,21 @@ the underlying's preloaded bars, and otherwise it takes each new bar of the
 underlying as it arrives. That is why the underlying must be added to
 cerebro first. Each bar is priced from the underlying's OHLC.
 
+Margin is a model the broker consults, not a rule inside it.
+`BackBroker.check_submitted` pseudo-executes each order, as it always has,
+and then asks the model whether the cash left covers the positions that
+would remain. An order the model refuses is undone from the pseudo-state, so
+it cannot affect the orders after it. After every bar `_check_margin` asks
+again about the positions held, and a shortfall becomes
+`broker.margin_call`, which `Strategy._notify` passes to `notify_margin`.
+
+A combo is a group of ordinary market orders sharing a `_Combo`.
+`check_submitted` pseudo-executes the legs together and accepts or refuses
+them all. In `next()` the legs are held back from the per-order loop and
+filled together by `_exec_combos`, once every leg's feed has a bar after
+the order was created. They execute with `force=True`, so no single leg can
+be refused for cash after the group was accepted.
+
 `Cerebro.addoption` ties a feed to its commission scheme by name, so the
 multiplier that values a position is always the contract's.
 
