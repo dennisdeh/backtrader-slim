@@ -167,6 +167,9 @@ UNRELEASED
     failed against the previous code on 2026-10-29.
 
   FIXES
+  - DataFilter and DataFiller start the feed they wrap but never stopped
+    it, so a wrapped feed that was not preloaded kept its file open after
+    the run (a ResourceWarning). Their stop() now stops it.
   - exactbars=1 lost bars. Making room for a bar evicted the current one
     from a buffer exactly a minimum period long, so a feed that ended
     before the others left an empty buffer: an IndexError when the broker

@@ -8,7 +8,7 @@ What is tested, how it is selected, and what it costs.
 
 ```shell
 conda activate backtrader
-pytest                  # 636 tests, ~85 s (2026-10-29)
+pytest                  # 639 tests, ~85 s (2026-10-29)
 pytest --cov            # adds coverage, ~4 min
 pytest -m "not plotting"   # skip the 13 matplotlib rendering tests
 ```
@@ -119,7 +119,7 @@ is now in CLAUDE.md.
 | `test_broker.py` | 17 | cash and value accounting, order types, commission, slippage |
 | `test_resampling_intraday.py` | 18 | intraday resample/replay, trading calendar, PSAR, PivotPoint |
 | `test_feeds.py` | 20 | CSV family, PandasData, Chainer, RollOver |
-| `test_filters_sizers.py` | 45 | filters, sizers, fillers, commission schemes, bar splitters, data wrappers |
+| `test_filters_sizers.py` | 48 | filters, sizers, fillers, commission schemes, bar splitters, data wrappers |
 | `test_strategy_*.py`, `test_writer.py`, others | 10 | strategy runs, writer output |
 | `test_metaclass.py` | 6 | the `frompackages` directive, that nothing optional is imported eagerly, and that pyflakes finds no undefined name |
 | `test_licensing.py` | 5 | GPLv3 notices, upstream copyright, modification notices, LICENSE, README attribution |

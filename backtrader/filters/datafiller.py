@@ -83,6 +83,12 @@ class DataFiller(AbstractDataBase):
         self.p.dataname.setenvironment(self._env)
         self.p.dataname._start()
 
+    def stop(self):
+        super().stop()
+        # Started by _startinner, so stopped here: cerebro never sees the
+        # inner feed, and a feed left running keeps its file open
+        self.p.dataname.stop()
+
     def preload(self):
         if len(self.p.dataname) == self.p.dataname.buflen():
             # if data is not preloaded .... do it

@@ -8,20 +8,24 @@ move out of this file; things that turn out to be deliberate move to
 
 ## Open
 
-### Data wrappers leave their wrapped feed's file open
-
-*Found 2026-10-29, running `tests/test_filters_sizers.py` under `-W error`.*
-`DataFiller` and `DataFilter` start the feed they wrap themselves
-(`_startinner`, which calls the inner feed's `_start`, which opens its CSV
-file), but nothing stops it, so the file is never closed. Python reports a
-`ResourceWarning` at collection. The project's `filterwarnings` does not
-make `ResourceWarning` an error, so the suite passes. Under `-W error`, three
-tests fail, on `master` as well: `test_real_bars_are_untouched`,
-`test_data_filter_accepting_everything_matches_the_plain_feed` and
-`test_data_filter_delivers_each_bar_once[False]`. The fix is for the
-wrapper's `stop()` to stop its inner feed.
+*None as of 2026-10-29.*
 
 ## Fixed, unreleased
+
+### Data wrappers left their wrapped feed's file open
+
+*Found 2026-10-29, running `tests/test_filters_sizers.py` under `-W error`;
+fixed the same day.* `DataFiller` and `DataFilter` start the feed they wrap
+themselves (`_startinner`), since cerebro never sees it, but nothing stopped
+it. A feed that was not preloaded kept its CSV file open after the run, and
+Python reported a `ResourceWarning`. Under `-W error` three tests failed, on
+`master` as well: `test_real_bars_are_untouched`,
+`test_data_filter_accepting_everything_matches_the_plain_feed` and
+`test_data_filter_delivers_each_bar_once[False]`. Both wrappers' `stop()` now
+stops the inner feed, as `Chainer` and `RollOver` already did. The tests are
+`test_data_filter_closes_the_wrapped_feeds_file` and
+`test_the_wrapped_feeds_file_is_closed`; against the unfixed code, 2 of the 3
+failed (a preloaded feed closes its file after preloading).
 
 ### `exactbars=1` lost bars: crashes at a feed's end, wrong values when unaligned
 

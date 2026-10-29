@@ -358,8 +358,6 @@ class TestDataWrappers:
     Both were unreachable until the wrapped feed was started properly: nothing
     hands the inner feed to cerebro, so nothing gave it an environment or ran
     _start_finish(), and the first bar load raised AttributeError on _tzinput.
-    They are exercised here with ``preload=False``; see reports/OPEN_ITEMS.md
-    for the two defects that remain behind that.
     """
 
     def wrap(self, funcfilter):
@@ -406,6 +404,20 @@ class TestDataWrappers:
         assert bars(self.wrap(lambda d: True), preload=True) == bars(
             self.wrap(lambda d: True), preload=False
         )
+
+    @pytest.mark.parametrize("preload", [True, False])
+    def test_data_filter_closes_the_wrapped_feeds_file(self, preload):
+        """The wrapper starts its inner feed itself, so it must stop it too.
+
+        Without that, a feed that is not preloaded kept its CSV file open
+        after the run, and Python reported a ResourceWarning.
+        """
+        inner = csvdata()
+        bars(
+            bt.filters.DataFilter(dataname=inner, funcfilter=lambda d: True),
+            preload=preload,
+        )
+        assert inner.f is None
 
 
 class TestDataFiller:
@@ -482,6 +494,11 @@ class TestDataFiller:
         rows = self.delivered(filled)
         assert (rows[0][1], rows[0][2]) == (10.2, 100.0)
         assert (rows[3][1], rows[3][2]) == (11.2, 200.0)
+
+    def test_the_wrapped_feeds_file_is_closed(self, tmp_path):
+        inner = self.minutefeed(tmp_path)
+        self.delivered(bt.filters.DataFiller(dataname=inner))
+        assert inner.f is None
 
     def test_inserted_bars_take_the_configured_volume(self, tmp_path):
         filled = bt.filters.DataFiller(dataname=self.minutefeed(tmp_path), fill_vol=0.0)
