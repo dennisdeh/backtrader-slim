@@ -232,9 +232,10 @@ jobs:
     needs: [format, test, test-macos, coverage, package]
     runs-on: ubuntu-latest
     steps:
-      # Every job must succeed, except that test-macos may be cancelled: a
-      # macOS job that is never given a runner is cancelled after 15 minutes
-      # in the queue. A macOS run that fails still fails the gate.
+      # Every job must succeed, except that test-macos may be "abandoned":
+      # what needs reports for a job never given a runner, which the API and
+      # the web page show as cancelled after 15 minutes in the queue. A macOS
+      # run that fails, or is cancelled, still fails the gate.
       - name: every job must have succeeded
         env:
           NEEDS: ${{ toJSON(needs) }}
@@ -248,7 +249,7 @@ jobs:
               print(f"{job}: {result}")
               if result == "success":
                   continue
-              if job == "test-macos" and result == "cancelled":
+              if job == "test-macos" and result == "abandoned":
                   print("::warning::macOS got no runner: its result is missing, not green")
                   continue
               failed.append(job)

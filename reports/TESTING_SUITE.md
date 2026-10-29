@@ -78,8 +78,11 @@ Four things about the matrix are deliberate:
   The repository is public, so it was not billing, and the workflow sets no
   timeout. Every other job was green, but `CI passed` needed all of them, so
   nothing could reach `master`. macOS is now its own job, `test-macos`, and
-  `CI passed` accepts it as `cancelled`, with a warning, while still failing
-  on `failure`. The cost: a commit can reach `master` without a macOS run,
+  `CI passed` accepts it as `abandoned`, with a warning, while still failing
+  on `failure` or `cancelled`. `abandoned` is what `needs` reports for a job
+  never given a runner, though the API and the web page call it `cancelled`;
+  the first version of this check accepted `cancelled` and failed on that
+  (run #39). The cost: a commit can reach `master` without a macOS run,
   and every run waits 15 minutes for one while runners are missing. Revisit
   once macOS runners are back.
 
