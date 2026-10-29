@@ -83,8 +83,9 @@ Four things about the matrix are deliberate:
   never given a runner, though the API and the web page call it `cancelled`;
   the first version of this check accepted `cancelled` and failed on that
   (run #39). The cost: a commit can reach `master` without a macOS run,
-  and every run waits 15 minutes for one while runners are missing. Revisit
-  once macOS runners are back.
+  and every run waits 15 minutes for one while runners are missing. Run #40
+  (2026-10-29) was given a macOS runner again; keeping the exemption is a
+  choice to revisit, not a necessity.
 
 ## What the artefact job checks that the suite cannot
 

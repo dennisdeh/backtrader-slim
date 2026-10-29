@@ -524,6 +524,34 @@ The questionnaire was answered in the session chat on 2026-10-29.
     exercise, before its delivery arrived.
   - 18 chain tests and 1 analyzer test. Full suite 2026-10-29: 620 passed,
     1 skipped.
+- **Defects found along the way, fixed after phase 5.** Each has its own
+  branch, stacked in this order on `master` as of 2026-10-29, which by then
+  had everything through `options-chain` (pull request #5). Each was shown
+  red against the unfixed code; the details are in `reports/OPEN_ITEMS.md`
+  under "Fixed, unreleased" and in `changelog.txt`.
+  - `fix-csv-filelike`: a CSV feed given a file-like object raised
+    `TypeError` while naming itself. The options tests had worked around it.
+  - `fix-percentsizer`: `PercentSizer` ignored the commission scheme, so on
+    a ×100 contract it asked for 100 times what the cash covered. An API
+    break for options and futures.
+  - `fix-exactbars1`: `exactbars=1` crashed when a feed ended early or
+    feeds were unaligned, and silently changed a weekly resample's values
+    from 2006-01-16. It now matches unbounded buffers in all six cases
+    compared. Option settlement's mode matrix now includes it.
+  - `fix-wrapper-close`: `DataFilter` and `DataFiller` never stopped the
+    feed they wrap, and a run that raised never stopped any feed; both left
+    files open. The suite now runs clean under `-W error::ResourceWarning`.
+  - Full suite 2026-10-29: 642 passed, 1 skipped.
+- **CI, 2026-10-29.** From about 14:45 UTC GitHub gave the repository no
+  hosted macOS runner, on `macos-latest` or a pinned `macos-15`: six jobs
+  were cancelled after 15 minutes in the queue, while every other job was
+  green. Branch `fix-ci-macos`, stacked on `fix-wrapper-close`, makes macOS
+  its own job and lets `CI passed` accept it as `abandoned`, what `needs`
+  reports for a job never given a runner. A failed or cancelled macOS run
+  still blocks. The user chose this over dropping macOS or waiting. Its
+  final version's run, #40, got a macOS runner again and was green throughout, so
+  the `abandoned` path has been checked only locally, against seven
+  payloads. `reports/TESTING_SUITE.md` holds the record.
 - **Deferred, and where each belongs:**
   - a Reg-T `StrategyBased` margin model, which the report recommended
     and answer 13 passed over for cash-only;
