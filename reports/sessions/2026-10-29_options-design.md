@@ -479,15 +479,55 @@ The questionnaire was answered in the session chat on 2026-10-29.
     condors' twelve results sum to the account's gain, 7,257.89 on
     2026-10-29.
   - 19 tests. Full suite 2026-10-29: 582 passed, 1 skipped.
+- **Quote fills (answer 8):** done on branch `options-fills`, stacked on
+  `options-margin`. `broker.set_quotefill(fraction)` fills at mid ± that
+  fraction of the half-spread. Example 21 now quotes a 6% spread and fills
+  halfway, which cut its 2006 gain from 7,257.89 to 6,691.88. 14 tests;
+  full suite 2026-10-29: 596 passed, 1 skipped.
+- **P&L attribution (answer 19):** done on branch `options-attribution`,
+  stacked on `options-fills`. `GreeksAttribution` splits each held
+  position's close-to-close change into delta, gamma, vega, theta and a
+  residual, with trading costs as "other". On 2026-10-29 it gave:
+  - On a flat market with constant volatility, theta explained 225 of the
+    257 a call lost. The residual is the decay's curvature, missed in
+    one-day steps near expiry.
+  - Example 21's 2006 condors: theta +13,172, gamma -14,541, delta +7,845,
+    vega +3,143, residual -2,733 and other -194, summing to the 6,691.88
+    gain.
+  - 4 tests; full suite 600 passed, 1 skipped.
+- **Phase 5, chain-native options (A4):** done on branch `options-chain`,
+  stacked on `options-attribution`.
+  - `OptionChain` with `ContractView`s, from pandas, partitioned, CSV or
+    model sources, with selection by delta or moneyness. This is for
+    answers 7 and 11: full chains on an index-wide universe.
+  - **Answer 21's target, 500 underlyings × 10 years in under 30 minutes,
+    is met on synthetic data.** Measured on 2026-10-29, on 4 cores, one
+    process, at 976 contracts per underlying-day, with the script in the
+    appendix:
+
+    | underlyings × 252 days | window | per underlying-day | 500 × 10 years |
+    |---|---|---|---|
+    | 10 | none | 1.41 ms | 29.7 min |
+    | 10 | 0-60 days | 0.67 ms | 14.2 min |
+    | 50 | none | 1.13 ms | 23.7 min |
+    | 50 | 0-60 days | 0.70 ms | 14.8 min |
+
+    Three caveats. The data is synthetic, so a real vendor's chains may be
+    wider. The time grows linearly with underlying-days, which is what the
+    10 → 50 rows show. And ten years of full chains for 500 underlyings do
+    not fit in memory at once: `PartitionedChainSource` keeps one year or
+    month per underlying. Two changes made the target reachable: reading
+    the call/put column with a hash lookup rather than string methods
+    (100× faster), and sorting keys once at load rather than per day.
+  - On the way, a stage 4 defect was fixed in its own commit:
+    `StructureTrades` closed a lone call's structure at a physical
+    exercise, before its delivery arrived.
+  - 18 chain tests and 1 analyzer test. Full suite 2026-10-29: 620 passed,
+    1 skipped.
 - **Deferred, and where each belongs:**
-  - fills at mid ± a fraction of the spread (answer 8), which needs a
-    broker fill model;
   - a Reg-T `StrategyBased` margin model, which the report recommended
     and answer 13 passed over for cash-only;
-  - P&L attribution by greek (answer 19), the analytics left after
-    phase 4;
   - early exercise, which is out of scope per answer 3;
-  - the numpy path for chain-wide pricing (answer 20), which waits for A4.
 - **Known limitation:** a position built under several `tradeid`s settles
   under the `tradeid` of the last order on that contract.
 
@@ -533,3 +573,80 @@ E6 timing command: `PYTHONPATH=. python3 e6_scale.py 0 10 100 500 1000`, with
 one 252-bar underlying and N feeds, each listed for 60 bars at a random
 start (`random.seed(1)`), and a strategy whose `prenext` calls an empty
 `next`.
+
+### The chain benchmark (phase 5)
+
+`python chain_bench.py 10 50` from the repository root, with pandas and numpy
+installed:
+
+```python
+"""Throughput of chain-native options: N underlyings x 1 year, full chains.
+
+Each underlying: a GBM daily series (252 bars) and a chain of 8 monthly
+expiries x 61 strikes (+/-30%, 1% steps) x 2 rights = 976 contracts a day.
+Strategy: each underlying sells a 30-delta put (20-50 DTE) on the first bar
+of each month, chosen by delta, and holds it to expiry.
+"""
+import datetime, math, sys, time, random
+import numpy as np, pandas as pd
+import backtrader as bt
+from backtrader.options import OptionChain, PandasChainSource, pricing
+from backtrader.options.chain import _bsm_prices, third_friday
+
+def make(n, days=252, seed=7):
+    rng = np.random.default_rng(seed)
+    dates = pd.bdate_range("2006-01-02", periods=days)
+    unds, chains = [], []
+    for u in range(n):
+        S = 100 * np.exp(np.cumsum(rng.normal(0, 0.012, days)))
+        unds.append(pd.DataFrame({"open": S, "high": S, "low": S, "close": S, "volume": 0.0, "openinterest": 0.0}, index=dates))
+        rows = []
+        for d, s in zip(dates, S):
+            day = d.date()
+            exps, y, m = [], day.year, day.month
+            while len(exps) < 8:
+                tf = third_friday(y, m)
+                if tf >= day: exps.append(tf)
+                y, m = (y + 1, 1) if m == 12 else (y, m + 1)
+            K = np.round(s * np.linspace(0.7, 1.3, 61), 1)
+            E, KK, C = np.meshgrid(np.array([e.toordinal() for e in exps]), K, [False, True], indexing="ij")
+            T = (E.ravel() - day.toordinal()) / 365
+            p = _bsm_prices(np, s, KK.ravel(), T, C.ravel(), 0.25, 0.03, 0.0)
+            rows.append(pd.DataFrame({"date": d, "expiry": pd.to_datetime([datetime.date.fromordinal(int(o)) for o in E.ravel()]),
+                                      "strike": KK.ravel(), "right": np.where(C.ravel(), "C", "P"), "bid": p * 0.98, "ask": p * 1.02}))
+        chains.append(pd.concat(rows, ignore_index=True))
+    return unds, chains
+
+class SellPuts(bt.Strategy):
+    def start(self): self.month = {}; self.sold = 0
+    def next(self):
+        day = self.datas[0].datetime.date(0)
+        for d in self.datas:
+            if self.month.get(d._name) != day.month:
+                self.month[d._name] = day.month
+                v = self.getchain(d._name).select("P", dte=(20, 50), delta=-0.30)
+                if v is not None:
+                    self.sell(data=v, size=1); self.sold += 1
+
+def run(unds, chains, dte):
+    t0 = time.perf_counter()
+    sources = [PandasChainSource(c, dte=dte) for c in chains]
+    t1 = time.perf_counter()
+    cerebro = bt.Cerebro(stdstats=False)
+    for i, (u, src) in enumerate(zip(unds, sources)):
+        data = bt.feeds.PandasData(dataname=u)
+        cerebro.adddata(data, name=f"u{i}")
+        cerebro.addchain(OptionChain(data, src, settlement="cash", rate=0.03))
+    cerebro.addstrategy(SellPuts); cerebro.broker.setcash(1e9)
+    st = cerebro.run()[0]
+    t2 = time.perf_counter()
+    return t1 - t0, t2 - t1, st.sold
+
+for n in map(int, sys.argv[1:]):
+    unds, chains = make(n)
+    rows = sum(len(c) for c in chains)
+    for dte in (None, (0, 60)):
+        load, runt, sold = run(unds, chains, dte)
+        per = (load + runt) / (n * 252) * 1e3
+        print(f"N={n:3d} rows={rows:,} dte={dte}: load {load:5.2f}s run {runt:6.2f}s sold {sold}  -> {per:.3f} ms per underlying-day; 500x10y: {per * 500 * 2520 / 60e3:.1f} min")
+```

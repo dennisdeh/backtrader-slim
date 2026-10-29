@@ -24,12 +24,13 @@
 """Looking at an options book as a whole: its greeks, and its structures."""
 
 import collections
+import math
 
 from ..analyzer import Analyzer
 from ..observer import Observer
 from . import pricing
 
-__all__ = ["PortfolioGreeks", "StructureTrades"]
+__all__ = ["PortfolioGreeks", "StructureTrades", "GreeksAttribution"]
 
 
 class PortfolioGreeks(Observer):
@@ -104,6 +105,7 @@ class StructureTrades(Analyzer):
     def start(self):
         super().start()
         self._open = {}
+        self._feeds = {}  # name -> feed, for the contract a delivery settles
 
     def _owner_of(self, data):
         for ref in reversed(self._open):
@@ -123,11 +125,13 @@ class StructureTrades(Analyzer):
     def notify_order(self, order):
         if order.status != order.Completed:
             return
+        self._feeds.setdefault(order.data._name, order.data)
         ref = order.info.get("combo")
         if ref is None:
             data = order.data
             if order.info.get("settlement") == "delivery":
-                data = self.strategy.getdatabyname(order.info.option)
+                # by the orders seen: a chain's contract is no cerebro feed
+                data = self._feeds.get(order.info.option)
             ref = self._owner_of(data)
             if ref is None:
                 return  # not part of any structure
@@ -148,7 +152,16 @@ class StructureTrades(Analyzer):
             ex.size, ex.price
         )
         s["cash"] -= ex.comm
-        if all(abs(q) < 1e-9 for q in s["qty"].values()):
+        # a physical exercise or assignment is followed by its delivery: the
+        # option is flat before the underlying arrives, and that is no close
+        leg = order.info.get("settlement")
+        contract = getattr(order.data, "contract", None)
+        if leg in ("exercise", "assignment") and contract.settlement == "physical":
+            s["delivery"] = True
+        elif leg == "delivery":
+            s["delivery"] = False
+        flat = all(abs(q) < 1e-9 for q in s["qty"].values())
+        if flat and not s.get("delivery"):
             self._record(
                 ref, self._open.pop(ref), closed=self.strategy.datetime.date(0)
             )
@@ -174,3 +187,98 @@ class StructureTrades(Analyzer):
             worst=min(s["worst"], pnl),
             best=max(s["best"], pnl),
         )
+
+
+class GreeksAttribution(Analyzer):
+    """Explains the book's profit and loss by the greeks, bar by bar.
+
+    Each position held from one bar's close to the next has its value
+    change split, with the greeks at the start of the bar, into:
+
+      - ``delta``: the underlying's move, delta x dS
+      - ``gamma``: its curvature, 1/2 x gamma x dS^2
+      - ``vega``: the implied volatility's change, vega x dsigma
+      - ``theta``: the time that passed, theta x dt
+      - ``residual``: what those four leave unexplained (higher-order
+        terms, and expiry, when the option's value jumps to its payoff)
+
+    so that the five add up exactly to the held positions' change. A
+    position in an underlying is all ``delta``. ``other`` is what moved the
+    broker's value beyond that: trading during the bar, commissions,
+    positions opened. ``get_analysis()`` holds the totals of each, plus
+    ``bars``: the same split per bar, keyed by date.
+
+    Params: ``rate`` and ``dividend`` (continuous, def: ``0.0``).
+    """
+
+    params = (("rate", 0.0), ("dividend", 0.0))
+    PARTS = ("delta", "gamma", "vega", "theta", "residual", "other")
+
+    def start(self):
+        super().start()
+        for part in self.PARTS:
+            self.rets[part] = 0.0
+        self.rets["bars"] = collections.OrderedDict()
+        self._held = []
+        self._value = None
+
+    def _state(self, data, size):
+        """What a position looks like now: price, underlying, volatility."""
+        c = getattr(data, "contract", None)
+        if c is None:
+            return dict(data=data, size=size, price=data.close[0])
+        und = self.strategy.cerebro.datasbyname[c.underlying]
+        S, price = und.close[0], data.close[0]
+        day = data.datetime.date(0)
+        T = c.years_to_expiry(day)
+        r, q = self.p.rate, self.p.dividend
+        sigma = pricing.implied_vol(price, c.right, S, c.strike, T, r, q)
+        return dict(
+            data=data, size=size, price=price, S=S, day=day, T=T, sigma=sigma, c=c
+        )
+
+    def next(self):
+        broker = self.strategy.broker
+        parts = dict.fromkeys(self.PARTS, 0.0)
+        explained = 0.0
+        for old in self._held:
+            new = self._state(old["data"], old["size"])
+            change = old["size"] * (new["price"] - old["price"])
+            c = old.get("c")
+            if c is None:  # the underlying itself
+                parts["delta"] += change
+                explained += change
+                continue
+            units = old["size"] * c.multiplier
+            change *= c.multiplier
+            sigma0 = old["sigma"] if math.isfinite(old["sigma"]) else 0.0
+            sigma1 = new["sigma"] if math.isfinite(new["sigma"]) else sigma0
+            r, q = self.p.rate, self.p.dividend
+            g = pricing.bsm(c.right, old["S"], c.strike, old["T"], r, sigma0, q)
+            dS = new["S"] - old["S"]
+            dt = (new["day"] - old["day"]).days / 365.0
+            terms = dict(
+                delta=units * g.delta * dS,
+                gamma=units * 0.5 * g.gamma * dS * dS,
+                vega=units * g.vega * (sigma1 - sigma0),
+                theta=units * g.theta * dt,
+            )
+            for name, value in terms.items():
+                parts[name] += value
+            parts["residual"] += change - sum(terms.values())
+            explained += change
+
+        value = broker.getvalue()
+        if self._value is not None:
+            parts["other"] = value - self._value - explained
+        self._value = value
+
+        for name, amount in parts.items():
+            self.rets[name] += amount
+        self.rets["bars"][self.strategy.datetime.date(0)] = parts
+
+        self._held = [
+            self._state(d, p.size)
+            for d, p in broker.positions.items()
+            if p.size and len(d)
+        ]

@@ -136,6 +136,17 @@ filled together by `_exec_combos`, once every leg's feed has a bar after
 the order was created. They execute with `force=True`, so no single leg can
 be refused for cash after the group was accepted.
 
+`options/chain.py` scales options to whole chains without a feed per
+contract. An `OptionChain` is no data feed: it reads its underlying's clock,
+and on first use in a bar it loads that day's `Snapshot` (columns sorted by
+a contract key) from its source. It then moves on only the `ContractView`s
+it has handed out. A view gives the broker, `Order`, `Trade`, margin,
+settlement and the analyzers exactly what they read from a data feed:
+`close/open/high/low[ago]`, `datetime`, `_name`, `_tz`, `p`, `len()`,
+`num2date`/`date2num` and the contract. Because loading is lazy, it behaves
+the same in every run mode. `Cerebro.addchain` registers the chain's
+commission scheme for each contract as its view is created.
+
 `Cerebro.addoption` ties a feed to its commission scheme by name, so the
 multiplier that values a position is always the contract's.
 
