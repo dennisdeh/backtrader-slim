@@ -69,14 +69,19 @@ Four things about the matrix are deliberate:
   optimization tests pass under the `spawn` start method — verified by forcing
   `multiprocessing.set_start_method("spawn")`, which is what macOS and Windows
   use and Linux does not.
-- **macOS runs on a pinned image, `macos-15`, not `macos-latest`.** On
-  2026-10-29, four `macos-latest` jobs in a row (runs #33 and #35, each
-  re-run once) were never given a runner and were cancelled after exactly 15
-  minutes in the queue, with no log and no reason recorded; the last one to
-  run had passed at 14:44 UTC. The repository is public, so it was not
-  billing, and the workflow sets no timeout. Every other job was green. A
-  pinned image also means a new macOS release reaches the gate only when the
-  pin is moved deliberately, as Black's version is.
+- **A macOS job that gets no runner does not block; one that fails does.**
+  On 2026-10-29, from about 14:45 UTC, GitHub gave this repository no hosted
+  macOS runner: six jobs in a row, on `macos-latest` and on a pinned
+  `macos-15`, sat queued and were cancelled after exactly 15 minutes, with no
+  log and no reason recorded (runs #33 and #35, each re-run once, #37, and
+  #38 on `macos-15`).
+  The repository is public, so it was not billing, and the workflow sets no
+  timeout. Every other job was green, but `CI passed` needed all of them, so
+  nothing could reach `master`. macOS is now its own job, `test-macos`, and
+  `CI passed` accepts it as `cancelled`, with a warning, while still failing
+  on `failure`. The cost: a commit can reach `master` without a macOS run,
+  and every run waits 15 minutes for one while runners are missing. Revisit
+  once macOS runners are back.
 
 ## What the artefact job checks that the suite cannot
 
