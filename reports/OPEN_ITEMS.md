@@ -4,12 +4,35 @@ Places where the code does something other than what it should. Fixed entries
 move out of this file; things that turn out to be deliberate move to
 `DECISIONS.md`.
 
-*Last updated: 2026-08-24*
+*Last updated: 2026-10-29*
 
 ## Open
 
-Nothing. Every item filed during the 2026-08-23 session is fixed and recorded
-below; anything new goes here.
+### Stock-like commission schemes apply `mult` to P&L but not to cost or value
+
+*Found 2026-10-29, while investigating options
+(`sessions/2026-10-29_options-design.md`, experiment E1).* `CommInfoBase`'s
+docstring says `mult` is the "multiplier applied to the asset for
+value/profit". On the futures-like branch it is. On the stock-like branch
+(`stocklike=True`), `getoperationcost`, `getvaluesize`, `getvalue` and
+`getsize` ignore it, but `profitandloss` applies it, and
+`BackBroker._execute` adds that P&L to cash when a position closes.
+
+Reproduced on 2026-10-29: `setcommission(mult=100, stocklike=True,
+commtype=COMM_FIXED)`. Buy one unit at 2.00 and sell it at 4.00 on a 10,000
+account. The opening takes 2.00 of cash instead of 200, and `getvalue()` reads
+10000 / 10001 / 10002 while the position is open. When the position closes the
+value jumps to 10200. The final number is right; everything before it is
+wrong by the factor `mult`, and so are the margin dry run in
+`check_submitted` and the sizing in `getsize`.
+
+Nothing in `tests/` or `samples/` uses a stock-like scheme with `mult != 1`.
+Every existing `mult` test is futures-like. The obvious fix is to multiply by
+`mult` in the four stock-like branches. That changes results for anyone
+relying on today's numbers, so it is an API break to record in
+`changelog.txt`. Whether to fix it in the core or contain it in an option
+commission class is question 17 of the options report. The fix needs a
+regression test that is shown failing first.
 
 ## Fixed in 2.2.0
 
