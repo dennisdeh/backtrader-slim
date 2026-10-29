@@ -8,7 +8,7 @@ What is tested, how it is selected, and what it costs.
 
 ```shell
 conda activate backtrader
-pytest                  # 448 tests, ~70 s (2026-10-29)
+pytest                  # 516 tests, ~76 s (2026-10-29)
 pytest --cov            # adds coverage, ~4 min
 pytest -m "not plotting"   # skip the 12 matplotlib rendering tests
 ```
@@ -104,6 +104,9 @@ is now in CLAUDE.md.
 | `test_ind_*.py` (70 files) | 70 | golden-value regressions, one per indicator |
 | `test_analyzers.py` | 30 | every built-in analyzer |
 | `test_cerebro.py` | 23 | running, optimisation, resampling, timers, writer, plotting, the btrun CLI |
+| `test_options_pricing.py` | 22 | pricing against Hull's worked examples, parity, tree convergence, greeks by finite differences, implied volatility |
+| `test_options_settlement.py` | 28 | option positions through cerebro: valuation, commission, cash and physical settlement, assignment, intraday expiry |
+| `test_ind_optiongreeks.py` | 18 | `OptionGreeks` in all twelve run modes against a fixture priced at 20% volatility, and the fixture against its generator |
 | `test_plot.py` | 10 | the date axis (labels, tick placement, timezone, weekend gaps), when figures are shown, `use=`, fresh figures |
 | `test_utils.py` | 27 | date conversion, AutoDict family, mathsupport, TimeFrame |
 | `test_orders_advanced.py` | 19 | stop/trailing/bracket/OCO orders, order_target_* |

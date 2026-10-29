@@ -116,6 +116,37 @@ follow the span shown: months over a year, hours within a day. The year is
 shown once at the axis end, and times are in the data feed's `tz`. Pass
 `fmt_x_ticks="%Y-%m-%d"` for a fixed format.
 
+## Options
+
+`bt.options` trades listed options through the ordinary engine. A contract
+is a data feed of premiums carrying its terms; the broker values it at
+`close * multiplier`, and at expiry it settles it against the underlying's
+close, in cash or by delivering the underlying.
+
+```python
+import backtrader as bt
+from backtrader.options import OptionContract, OptionCSVData, OptionCommInfo
+
+cerebro = bt.Cerebro()
+cerebro.adddata(stock_feed, name="SPY")
+contract = OptionContract("SPY", strike=450, expiry="2026-12-18", right="C")
+option = OptionCSVData(
+    dataname="spy-c450.csv", dtformat="%Y-%m-%d", bid=7, ask=8, contract=contract
+)
+cerebro.addoption(option, comminfo=OptionCommInfo(commission=0.65))
+```
+
+A strategy buys and sells it in contracts (`self.buy(data=option, size=2)`).
+A contract still open at expiry is settled by the broker: exercised,
+assigned or expiring worthless, each reported to `notify_order` with
+`order.info.settlement`. `bt.options.OptionGreeks(option, stock)` gives the
+implied volatility, delta, gamma, vega and theta every bar, and
+`bt.options.pricing` holds Black-Scholes-Merton, Black-76, a binomial tree
+and an implied-volatility solver, all on the standard library alone.
+
+Not yet: early exercise of American options, margin for short options, and
+fills at the bid/ask. See `reports/sessions/2026-10-29_options-design.md`.
+
 ## Running the tests
 
 ```shell

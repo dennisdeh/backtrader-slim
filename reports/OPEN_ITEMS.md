@@ -8,6 +8,33 @@ move out of this file; things that turn out to be deliberate move to
 
 ## Open
 
+### `exactbars=1` fails once a feed that carried a position ends early
+
+*Found 2026-10-29, testing option settlement in every memory mode.*
+With `exactbars=1`, a data feed's lines keep only the bars they need. Once a
+feed has run out of bars while others continue, `BackBroker._get_value`
+still reads `data.close[0]` for every entry in `self.positions`, including
+a position closed long ago, and raises `IndexError: deque index out of
+range`. Reproduced on 2026-10-29 with two plain stock feeds, five and eight
+bars long, buying and closing on the shorter one: `exactbars=False` gives
+10002.0, `exactbars=1` raises. Nothing option-specific is involved; the same
+script fails with the options work stashed. Options make it common, because
+every contract's feed ends at expiry. `tests/test_options_settlement.py`
+covers `exactbars` -2, -1 and False and leaves 1 out.
+
+### A CSV feed cannot be given a file-like object
+
+*Found 2026-10-29, writing the option settlement tests.*
+`GenericCSVData`'s docstring says `dataname` is "the filename to parse or a
+file-like object", and `CSVDataBase.start` does handle an object with
+`readline`. But `MetaCSVDataBase.dopostinit` names the feed from
+`os.path.basename(dataname)` when no `name` is given, and that raises
+`TypeError: expected str, bytes or os.PathLike object, not StringIO`.
+Reproduced on 2026-10-29 with `bt.feeds.GenericCSVData(dataname=io.StringIO(...))`.
+Passing `name=` avoids it, which is what `tests/test_options_settlement.py`
+does. The fix is to name a file-like feed from its `.name` attribute when it
+has one, and leave it unnamed otherwise.
+
 ### `PercentSizer` ignores the commission scheme
 
 *Found 2026-10-29, while fixing the stock-like `mult` item below.*

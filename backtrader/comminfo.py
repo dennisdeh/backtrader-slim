@@ -242,6 +242,12 @@ class CommInfoBase(metaclass=MetaParams):
         """Calculates the commission of an operation at a given price"""
         return self._getcommission(size, price, pseudoexec=True)
 
+    def getsettlementcommission(self, size, kind):
+        """Commission for settling ``size`` at expiry rather than trading it.
+        ``kind`` is ``"exercise"``, ``"assignment"``, ``"expiry"`` (worthless)
+        or ``"delivery"`` (the underlying leg of a physical settlement)."""
+        return 0.0
+
     def confirmexec(self, size, price):
         return self._getcommission(size, price, pseudoexec=False)
 

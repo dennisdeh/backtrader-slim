@@ -439,6 +439,35 @@ The questionnaire was answered in the session chat on 2026-10-29.
   threshold-triggered delta hedging (10) and per-structure P&L (19) all assume
   that legs fill together and are reported as one structure.
 
+## 6. Progress (2026-10-29)
+
+- **Phase 1, the `mult` fix:** done on branch `ccr-a43043e3-czqarg`
+  (commit `42c6f98`). CI was green on 2026-10-29.
+- **Phase 2, the A2 core:** done on branch `options-core`, stacked on
+  `ccr-a43043e3-czqarg`. As built:
+  - `OptionContract`, plus `OptionCSVData` and `OptionPandasData` with `bid`
+    and `ask` lines. `Cerebro.addoption` registers each feed together with
+    its `OptionCommInfo`.
+  - `OptionCommInfo`: a per-contract commission with a minimum and a
+    maximum per execution, and an exercise/assignment fee (answer 15).
+  - Expiry settlement in `BackBroker._settle_expired`, cash or physical per
+    contract (answer 4). Assignment happens at expiry only (answer 3).
+    Settlement executes even when cash cannot cover the delivery.
+  - `options.pricing`, stdlib only: Black-Scholes-Merton, Black-76, a CRR
+    tree and an implied-volatility solver. `OptionGreeks` gives IV, delta,
+    gamma, vega per point and theta per day, from the close or the
+    bid/ask mid.
+  - 68 tests. Full suite 2026-10-29: 515 passed, 1 skipped.
+- **Deferred, and where each belongs:**
+  - fills at mid ± a fraction of the spread (answer 8), which needs a
+    broker fill model;
+  - the cash-only margin with coverage across the portfolio (answer 13 and
+    the margin follow-up), which is phase 4 (B3);
+  - early exercise, which is out of scope per answer 3;
+  - the numpy path for chain-wide pricing (answer 20), which waits for A4.
+- **Known limitation:** a position built under several `tradeid`s settles
+  under the `tradeid` of the last order on that contract.
+
 ## Appendix: reproduction
 
 The experiment scripts lived in the session scratchpad. Their essentials are
