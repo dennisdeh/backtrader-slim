@@ -424,7 +424,12 @@ The questionnaire was answered in the session chat on 2026-10-29.
   cash-only as specified; (b) add `StrategyBased` margin before those
   strategies are built; (c) a cash-only variant that counts a short call as
   covered by stock held anywhere in the overlay (12), or by a long call in
-  the same structure. **Undecided.**
+  the same structure. **Decided 2026-10-29: (c).** Cash-only margin stays
+  the model. A short call counts as covered by stock held anywhere in the
+  portfolio or by a long call in the same structure, and a short call with
+  neither is rejected. Coverage has to be checked across the whole
+  portfolio, so the margin hook (B3) sees all positions together and the
+  contract ↔ underlying link (B-gap 3) is required from the start.
 - **American options exercised only at expiry (3), combined with dividends
   (16), makes covered calls optimistic.** In-the-money short calls are often
   assigned early, just before the stock goes ex-dividend, and this model
