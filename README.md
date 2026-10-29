@@ -147,6 +147,14 @@ and an implied-volatility solver, all on the standard library alone.
 Not yet: early exercise of American options, margin for short options, and
 fills at the bid/ask. See `reports/sessions/2026-10-29_options-design.md`.
 
+## Examples
+
+[`examples/`](examples/README.md) holds 18 runnable scripts, one per part of
+backtesting: data feeds, indicators, every order type, sizers, commissions,
+analyzers, plotting, optimisation, multi-asset portfolios, signals,
+timeframes, and options. Each runs offline on the data in `datas/`, and the
+test suite runs them all.
+
 ## Running the tests
 
 ```shell

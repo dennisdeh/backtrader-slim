@@ -23,6 +23,16 @@ UNRELEASED
     getvaluesize, getvalue and getsize change; with mult=1 (every stock) the
     result is identical.                                            (FIXES)
 
+  EXAMPLES
+  - examples/: 18 runnable scripts covering data feeds, indicators, order
+    types, brackets and OCO, target orders and sizers, commissions and
+    slippage, analyzers, observers and plotting, optimisation, a
+    multi-stock rotation on a timer, signals, timeframes and replay,
+    options pricing, a covered call, delta hedging, rolling protective
+    puts, and broker features (short interest, deposits and fund returns,
+    cheat-on-open, the CSV writer). tests/test_examples.py runs every one;
+    the sdist ships them.
+
   OPTIONS
   - New package backtrader.options (bt.options): OptionContract,
     OptionCSVData and OptionPandasData (feeds with bid/ask lines and a

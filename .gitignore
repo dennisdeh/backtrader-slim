@@ -76,3 +76,6 @@ datas/*.py
 
 # Personal scratch notes, not part of the project
 prompts.md
+
+# written by examples/ when they run
+examples/output/

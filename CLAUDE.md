@@ -168,7 +168,7 @@ And what bounds it:
 
 - `pytest` from the repository root — **in the foreground, with a bounded
   timeout.** Do not background the runner or spawn polling loops.
-- **516 tests, ~76 s** (2026-10-29, Python 3.13). `pytest --cov` adds
+- **535 tests, ~80 s** (2026-10-29, Python 3.13). `pytest --cov` adds
   coverage and takes ~4 min; coverage is 72% counting branches.
   **Report exact pass/fail counts.** "Tests pass" without numbers is not a
   report.
@@ -211,8 +211,12 @@ And what bounds it:
 - **State the root cause with evidence — a log, a reproducing command, or a
   failing test — before editing code.** A patch without a stated cause is a guess
   with a diff attached.
-- **Check `samples/` before writing a reproduction.** 68 sample programs exercise
-  most code paths; a bug reported against strategy code usually already has one.
+- **Check `examples/` and `samples/` before writing a reproduction.**
+  `examples/` (this fork's own, run by `tests/test_examples.py`) and the 68
+  upstream programs in `samples/` exercise most code paths; a bug reported
+  against strategy code usually already has one.
+- **An API change that breaks an example fails the suite.** Update the
+  example in the same commit; `examples/` is documentation that runs.
 - **A scoped grep answers a scoped question.** "Who references this?" is a
   whole-tree question — `samples/`, `contrib/`, `tools/` and the README included.
 - Do not treat a prior session's "already fixed" list as an exclusion list. It is
