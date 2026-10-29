@@ -24,13 +24,14 @@ UNRELEASED
     result is identical.                                            (FIXES)
 
   EXAMPLES
-  - examples/: 18 runnable scripts covering data feeds, indicators, order
+  - examples/: 20 runnable scripts covering data feeds, indicators, order
     types, brackets and OCO, target orders and sizers, commissions and
     slippage, analyzers, observers and plotting, optimisation, a
     multi-stock rotation on a timer, signals, timeframes and replay,
     options pricing, a covered call, delta hedging, rolling protective
-    puts, and broker features (short interest, deposits and fund returns,
-    cheat-on-open, the CSV writer). tests/test_examples.py runs every one;
+    puts on model-priced contracts, the wheel (cash-secured puts, then
+    covered calls), a monthly bull call spread, and broker features (short
+    interest, deposits and fund returns, cheat-on-open, the CSV writer). tests/test_examples.py runs every one;
     the sdist ships them.
 
   OPTIONS
@@ -57,6 +58,18 @@ UNRELEASED
     r=10%, sigma=20%, T=0.5); the greeks of S=49, K=50, T=20 weeks; a
     Black-76 put of 1.12; an American put of 4.49 on 5 steps and 4.283 on
     500. tests/test_options_pricing.py holds them.
+  - ModelOptionData prices an option from its underlying's bars, for
+    research without option data. It follows the underlying as a
+    DataClone, pricing each bar's OHLC with "bsm", "black76" or
+    "binomial". The volatility is a constant, or "realized": the
+    underlying's realised volatility up to the previous close, so a bar's
+    own move never prices it. listing= starts the contract, moneyness=
+    fixes its strike at listing from the previous close, and spread= sets
+    bid/ask around the close. addoption names it "... (model)".
+  - pricing.bsm never returns a negative price; rounding far out of the
+    money could give -0.0.
+  - OptionGreeks reads the contract on every bar rather than once, so it
+    follows a strike set at listing.
   - Not yet: early exercise, margin for short options, fills at bid/ask.
 
   PLOTTING

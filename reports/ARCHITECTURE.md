@@ -116,6 +116,11 @@ What is specific to options sits at three points:
 - `OptionGreeks` and `options.pricing` compute on demand; nothing in the
   engine depends on them.
 
+`ModelOptionData` is a `DataClone` of the underlying: preloading, it walks
+the underlying's preloaded bars, and otherwise it takes each new bar of the
+underlying as it arrives. That is why the underlying must be added to
+cerebro first. Each bar is priced from the underlying's OHLC.
+
 `Cerebro.addoption` ties a feed to its commission scheme by name, so the
 multiplier that values a position is always the contract's.
 

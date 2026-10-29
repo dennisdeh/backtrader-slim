@@ -34,4 +34,5 @@ from .comminfo import *
 from .contract import *
 from .feeds import *
 from .indicators import *
+from .model import *
 from .pricing import CALL, PUT

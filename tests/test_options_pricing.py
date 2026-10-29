@@ -130,3 +130,10 @@ def test_expiry_and_zero_volatility_are_intrinsic_or_forward():
 def test_an_unknown_right_is_refused(bad):
     with pytest.raises(ValueError):
         px.normalize_right(bad)
+
+
+def test_a_price_far_out_of_the_money_is_never_below_zero():
+    # rounding in K e^-rT N(-d2) - S N(-d1) used to give -0.0 here, printed
+    # as a negative premium
+    price = px.bsm("P", 3832.43, 3510, 1 / 365, 0.03, 0.2).price
+    assert math.copysign(1.0, price) == 1.0
