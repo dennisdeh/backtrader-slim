@@ -1,3 +1,25 @@
+UNRELEASED
+  API BREAKS
+  - A stock-like commission scheme (stocklike=True) now applies `mult` to
+    the operation cost, the position value and the size it computes, as it
+    already did to profit and loss. CommInfoBase.getoperationcost,
+    getvaluesize, getvalue and getsize change; with mult=1 (every stock) the
+    result is identical.                                            (FIXES)
+
+  FIXES
+  - A stock-like asset with mult != 1 (an option at 100 per contract) was
+    valued at x1 while its position was open and jumped to the x`mult`
+    result only when it closed, because profitandloss applied `mult` and
+    nothing else did. Buying one x100 unit at 2.00 took 2.00 of cash rather
+    than 200; at a close of 3.00 the account showed +1 instead of +100. The
+    margin dry run, order_target_value and Trade.value inherited the same
+    factor. Futures-like schemes are unchanged: they were already correct.
+    No test used the broken combination. samples/commission-schemes reaches
+    it with --commtype perc --stocklike (mult defaults to 10), and its output
+    is identical before and after, because it prints only order events.
+    Found while investigating options
+    (reports/sessions/2026-10-29_options-design.md).
+
 2.2.0: 2026-08-24
   TOOLING
   - Continuous integration, on GitHub Actions (.github/workflows/ci.yml).
