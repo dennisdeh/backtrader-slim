@@ -109,7 +109,7 @@ class TestFilters:
 
 
 class TestSizers:
-    def _run(self, sizer, **kwargs):
+    def _run(self, sizer, cash=100000.0, comm=None, **kwargs):
         sizes = []
 
         class Trader(bt.Strategy):
@@ -124,7 +124,9 @@ class TestSizers:
                     self.buy()
 
         cerebro = bt.Cerebro(stdstats=False)
-        cerebro.broker.setcash(100000.0)
+        cerebro.broker.setcash(cash)
+        if comm:
+            cerebro.broker.setcommission(**comm)
         cerebro.adddata(csvdata())
         cerebro.addsizer(sizer, **kwargs)
         cerebro.addstrategy(Trader)
@@ -141,6 +143,26 @@ class TestSizers:
         small = self._run(bt.sizers.PercentSizer, percents=1)
         large = self._run(bt.sizers.PercentSizer, percents=50)
         assert large[0] > small[0]
+
+    # Bar 5, where the order is sized, closed at 3666.99.
+
+    def test_percent_sizer_on_a_stock_is_cash_over_price(self):
+        sizes = self._run(bt.sizers.PercentSizer, percents=50)
+        assert sizes == [pytest.approx(50000.0 / 3666.99)]
+
+    def test_percent_sizer_counts_the_multiplier(self):
+        # 50% of 10,000,000 at 3666.99 x 100 a unit: 13.6, so 13 units. It
+        # used to ask for 1,363 - a hundred times what the cash covers -
+        # and the order was refused
+        comm = dict(mult=100.0, stocklike=True, commtype=bt.CommInfoBase.COMM_FIXED)
+        sizes = self._run(bt.sizers.PercentSizerInt, cash=1e7, comm=comm, percents=50)
+        assert sizes == [13]
+
+    def test_percent_sizer_counts_a_futures_margin(self):
+        # 50% of 100,000 at a margin of 2,000 a contract: 25 contracts, not
+        # the 13 the price alone gives
+        comm = dict(margin=2000.0, mult=10.0)
+        assert self._run(bt.sizers.PercentSizerInt, comm=comm, percents=50) == [25]
 
     def test_fixed_reverser_is_exported(self):
         assert issubclass(bt.sizers.FixedReverser, bt.Sizer)

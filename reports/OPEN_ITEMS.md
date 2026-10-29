@@ -8,6 +8,19 @@ move out of this file; things that turn out to be deliberate move to
 
 ## Open
 
+### Data wrappers leave their wrapped feed's file open
+
+*Found 2026-10-29, running `tests/test_filters_sizers.py` under `-W error`.*
+`DataFiller` and `DataFilter` start the feed they wrap themselves
+(`_startinner`, which calls the inner feed's `_start`, which opens its CSV
+file), but nothing stops it, so the file is never closed. Python reports a
+`ResourceWarning` at collection. The project's `filterwarnings` does not
+make `ResourceWarning` an error, so the suite passes. Under `-W error`, three
+tests fail, on `master` as well: `test_real_bars_are_untouched`,
+`test_data_filter_accepting_everything_matches_the_plain_feed` and
+`test_data_filter_delivers_each_bar_once[False]`. The fix is for the
+wrapper's `stop()` to stop its inner feed.
+
 ### `exactbars=1` fails once a feed that carried a position ends early
 
 *Found 2026-10-29, testing option settlement in every memory mode.*
@@ -22,20 +35,24 @@ script fails with the options work stashed. Options make it common, because
 every contract's feed ends at expiry. `tests/test_options_settlement.py`
 covers `exactbars` -2, -1 and False and leaves 1 out.
 
+## Fixed, unreleased
+
 ### `PercentSizer` ignores the commission scheme
 
-*Found 2026-10-29, while fixing the stock-like `mult` item below.*
+*Found 2026-10-29, while fixing the stock-like `mult` item; fixed the same day.*
 `PercentSizer._getsizing` computes `cash / data.close[0] * percents / 100`
 and never asks the `CommInfoBase` what a unit costs. With a ×100 multiplier
 (an option) it asks for 100 times what the cash can pay for, and the order
 comes back `Margin`. Reproduced on 2026-10-29: 50% of 10,000 cash at a price
 of 2.00 sizes 2,500 units, which completes with `mult=1` and is rejected with
-`mult=100`. It ignores a futures-like margin the same way. The fix is
-probably `comminfo.getsize(price, cash * percents / 100)`, which honours
-`mult`, margin and leverage alike. `AllInSizer` and the `*Int` variants
-inherit the same behaviour.
-
-## Fixed, unreleased
+`mult=100`. It ignored a futures-like margin the same way. It now divides by
+`comminfo.getoperationcost(1, price)` - the price for a stock, the price
+times `mult` for an option, the margin for a futures contract - and
+multiplies by `get_leverage()`, as `getsize` does. It still returns a
+fractional size unless `retint`, so a plain stock sizes exactly as before.
+`getsize` itself was not used because it always truncates to an integer.
+The red runs on 2026-10-29: `assert [] == [13]` (the ×100 order refused)
+and `assert [13] == [25]` (the futures margin ignored).
 
 ### A CSV feed cannot be given a file-like object
 

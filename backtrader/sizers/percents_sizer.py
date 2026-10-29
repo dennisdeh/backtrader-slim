@@ -31,6 +31,11 @@ __all__ = ["PercentSizer", "AllInSizer", "PercentSizerInt", "AllInSizerInt"]
 class PercentSizer(bt.Sizer):
     """This sizer return percents of available cash
 
+    A unit costs what the data's commission scheme says it does
+    (``getoperationcost``): the price for a stock, the price times the
+    multiplier for an option, the margin for a futures contract. Leverage
+    multiplies the size, as in ``CommInfoBase.getsize``.
+
     Params:
       - ``percents`` (default: ``20``)
     """
@@ -46,7 +51,9 @@ class PercentSizer(bt.Sizer):
     def _getsizing(self, comminfo, cash, data, isbuy):
         position = self.broker.getposition(data)
         if not position:
-            size = cash / data.close[0] * (self.params.percents / 100)
+            unitcost = comminfo.getoperationcost(1, data.close[0])
+            budget = cash * (self.params.percents / 100)
+            size = comminfo.get_leverage() * budget / unitcost
         else:
             size = position.size
 

@@ -1,5 +1,10 @@
 UNRELEASED
   API BREAKS
+  - PercentSizer (and AllInSizer, PercentSizerInt, AllInSizerInt) size by
+    the cost of a unit under the data's commission scheme, with its
+    leverage, rather than by the price alone. A stock with mult=1 sizes as
+    before. An option (mult 100) gets a hundredth of the old size, and a
+    futures contract is sized by its margin.                      (FIXES)
   - cerebro.plot() shows its figures again (pyplot.show()), in a window from
     a script or inline in a notebook, unless the backend is file-only (Agg,
     PDF, SVG, ...). A script that plotted and carried on now waits for the
@@ -162,6 +167,9 @@ UNRELEASED
     failed against the previous code on 2026-10-29.
 
   FIXES
+  - PercentSizer asked for 100 times what the cash covered on a x100
+    contract, and the order came back Margin; for futures it ignored the
+    margin. It divides by comminfo.getoperationcost(1, price) now.
   - A CSV feed given a file-like object (io.StringIO, an open file) raised
     TypeError while naming itself after a path, though its docstring says
     it reads one. It is now named after the object's file, if it has one,
