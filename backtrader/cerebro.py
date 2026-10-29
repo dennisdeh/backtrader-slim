@@ -838,7 +838,8 @@ class Cerebro(metaclass=MetaParams):
         ``OptionPandasData``) and the commission scheme it trades under.
 
         ``name`` defaults to one built from the contract, such as
-        ``"SPY 2026-12-18 450C"``. ``comminfo`` defaults to an
+        ``"SPY 2026-12-18 450C"``, with ``" (model)"`` appended for a
+        ``ModelOptionData``. ``comminfo`` defaults to an
         ``OptionCommInfo`` with the contract's multiplier; one passed in must
         use that multiplier too, since it is what values the position.
 
@@ -852,10 +853,15 @@ class Cerebro(metaclass=MetaParams):
             raise ValueError("addoption needs a feed carrying a contract")
 
         if name is None:
-            name = data._name or (
-                f"{contract.underlying} {contract.expiry} "
-                f"{contract.strike:g}{contract.right}"
-            )
+            name = data._name
+        if not name:
+            strike = f"{contract.strike:g}"
+            moneyness = getattr(data.p, "moneyness", None)
+            if moneyness is not None:  # strike fixed at listing
+                strike = f"{moneyness:.0%}"
+            name = f"{contract.underlying} {contract.expiry} {strike}{contract.right}"
+            if getattr(data, "MODEL", False):
+                name += " (model)"
 
         if comminfo is None:
             comminfo = OptionCommInfo(mult=contract.multiplier)

@@ -21,72 +21,42 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #
 ###############################################################################
-"""Options that roll: a monthly protective put, from a pricing model.
+"""Options that roll: a monthly protective put, priced by a model.
 
 Real strategies trade a new contract every month. Each contract is its own
 data feed, listed on its first day and gone after expiry. This example has
-no option market data, so it makes its own. For every month of 2006 it
-prices a put 5% below the market, expiring on the third Friday, with
-Black-Scholes at 15% volatility. It writes each contract to a CSV file, and
-the strategy buys it on its first day.
+no option market data, so ``ModelOptionData`` prices each contract from the
+index itself. Every month it lists a put 5% below the previous close,
+expiring on the third Friday, priced by Black-Scholes at the index's
+realised volatility, and the strategy buys it on its first day.
 
 Three things to notice:
 
 - A feed that has not started yet holds the strategy in ``prenext``. This
   strategy simply runs ``next`` there too.
 - A contract still held at expiry is settled by the broker, in cash here:
-  the put pays its intrinsic value if the market closed below the strike.
+  the put pays its intrinsic value if the index closed below the strike.
 - Model prices are not market prices. Real puts carry a skew (out-of-the-
   money puts trade at higher implied volatility) and a bid/ask spread, so
-  protection costs more than this shows.
+  protection costs more than this shows. That is why the feeds' names end
+  in "(model)".
 
 Run it:  python examples/17_options_rolling_puts.py
 """
 
 import datetime
-import tempfile
 from pathlib import Path
 
 import backtrader as bt
-from backtrader.options import OptionContract, OptionCSVData, pricing
+from backtrader.options import ModelOptionData, OptionContract
 
 REQUIRES = ()
 DATAS = Path(__file__).resolve().parent.parent / "datas"
-VOL, RATE, OTM = 0.15, 0.03, 0.95
 
 
 def third_friday(year, month):
     day = datetime.date(year, month, 15)
     return day + datetime.timedelta(days=(4 - day.weekday()) % 7)
-
-
-def write_contracts(folder):
-    """One CSV per monthly put, priced from the underlying. Returns
-    (contract, path) pairs."""
-    rows = [
-        line.split(",")
-        for line in (DATAS / "2006-day-001.txt").read_text().splitlines()[1:]
-    ]
-    bars = [(datetime.date.fromisoformat(r[0]), float(r[4])) for r in rows]
-    contracts = []
-    for month in range(1, 13):
-        expiry = third_friday(2006, month)
-        life = [(d, s) for d, s in bars if d.month == month and d <= expiry]
-        if len(life) < 2:
-            continue
-        strike = round(life[0][1] * OTM, -1)
-        contract = OptionContract(
-            "index", strike, expiry, "P", settlement="cash", multiplier=100
-        )
-        path = Path(folder) / f"put-{expiry}.csv"
-        with open(path, "w") as f:
-            f.write("Date,Open,High,Low,Close,Volume,OpenInterest\n")
-            for d, s in life:
-                T = (expiry - d).days / 365
-                p = pricing.bsm("P", s, strike, T, RATE, VOL).price
-                f.write(f"{d},{p:.4f},{p:.4f},{p:.4f},{p:.4f},0,0\n")
-        contracts.append((contract, path))
-    return contracts
 
 
 class ProtectivePut(bt.Strategy):
@@ -103,10 +73,8 @@ class ProtectivePut(bt.Strategy):
         if not self.getposition(self.index):
             self.buy(data=self.index, size=100)
         for put in self.puts:
-            first_day = len(put) == 1 and put.datetime.date(
-                0
-            ) == self.index.datetime.date(0)
-            if first_day and put not in self.bought:
+            listed_today = put.datetime.date(0) == self.index.datetime.date(0)
+            if len(put) == 1 and listed_today and put not in self.bought:
                 self.buy(data=put, size=1)
                 self.bought.add(put)
 
@@ -116,31 +84,34 @@ class ProtectivePut(bt.Strategy):
         value = abs(order.executed.price) * order.data.contract.multiplier
         if order.info.get("settlement"):
             self.payout += value
-            kind = order.info.settlement
             print(
-                f"{order.data.datetime.date(0)} {order.data._name}: {kind}, pays {value:8.2f}"
+                f"{order.data.datetime.date(0)} {order.data._name} "
+                f"(strike {order.data.contract.strike:g}): "
+                f"{order.info.settlement}, pays {value:8.2f}"
             )
         else:
             self.cost += value
 
 
 def main(plot=False):
-    with tempfile.TemporaryDirectory() as folder:
-        cerebro = bt.Cerebro(stdstats=False)
-        cerebro.adddata(
-            bt.feeds.BacktraderCSVData(dataname=str(DATAS / "2006-day-001.txt")),
-            name="index",
+    cerebro = bt.Cerebro(stdstats=False)
+    index = bt.feeds.BacktraderCSVData(dataname=str(DATAS / "2006-day-001.txt"))
+    cerebro.adddata(index, name="index")  # the underlying goes in first
+    for month in range(1, 13):
+        expiry = third_friday(2006, month)
+        contract = OptionContract("index", 1, expiry, "P", settlement="cash")
+        put = ModelOptionData(
+            dataname=index,
+            contract=contract,  # strike 1 is a placeholder: moneyness sets it
+            listing=datetime.date(2006, month, 1),
+            moneyness=0.95,
+            strikestep=10,
+            rate=0.03,
         )
-        for contract, path in write_contracts(folder):
-            feed = OptionCSVData(
-                dataname=str(path), dtformat="%Y-%m-%d", contract=contract
-            )
-            cerebro.addoption(
-                feed, name=f"put {contract.expiry:%b} {contract.strike:g}"
-            )
-        cerebro.addstrategy(ProtectivePut)
-        cerebro.broker.setcash(1_000_000.0)
-        strat = cerebro.run()[0]
+        cerebro.addoption(put)
+    cerebro.addstrategy(ProtectivePut)
+    cerebro.broker.setcash(1_000_000.0)
+    strat = cerebro.run()[0]
 
     print(f"puts bought for {strat.cost:,.2f}, paid out {strat.payout:,.2f}")
     print(f"final value {cerebro.broker.getvalue():,.2f} from 1,000,000.00")

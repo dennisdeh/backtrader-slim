@@ -24,8 +24,10 @@ working fails the build rather than misleading its reader.
 | [14_options_pricing.py](14_options_pricing.py) | Black-Scholes, greeks, Black-76, American options on a tree, implied volatility |
 | [15_options_covered_call.py](15_options_covered_call.py) | stock plus a short call, assigned at expiry with the stock delivered |
 | [16_options_delta_hedging.py](16_options_delta_hedging.py) | `OptionGreeks` in a strategy: a long call hedged when its delta drifts |
-| [17_options_rolling_puts.py](17_options_rolling_puts.py) | a new contract every month, priced from a model, settled in cash |
+| [17_options_rolling_puts.py](17_options_rolling_puts.py) | a protective put rolled monthly: `ModelOptionData`, strikes set at listing, cash settlement |
 | [18_broker_and_engine.py](18_broker_and_engine.py) | short selling with interest, deposits and fund returns, cheat-on-open, the CSV writer |
+| [19_options_cash_secured_put.py](19_options_cash_secured_put.py) | the wheel: cash-secured puts, assignment, then covered calls |
+| [20_options_vertical_spread.py](20_options_vertical_spread.py) | a monthly bull call spread: a defined-risk structure, and why the short leg goes first |
 
 `--plot` (or `--show` for 09) opens a chart where a display is available.
 Example 09 always writes its chart to `examples/output/`, which git ignores.

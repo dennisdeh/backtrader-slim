@@ -144,12 +144,19 @@ implied volatility, delta, gamma, vega and theta every bar, and
 `bt.options.pricing` holds Black-Scholes-Merton, Black-76, a binomial tree
 and an implied-volatility solver, all on the standard library alone.
 
+Without option market data, `bt.options.ModelOptionData` prices a contract
+from its underlying's bars: Black-Scholes, Black-76 or a binomial tree, at
+a constant volatility or the underlying's realised volatility up to the
+previous close. Its strike can be set at listing as a fraction of the
+market (`moneyness=0.95`). Its default name ends in "(model)": model
+prices have no skew and no real spread, which flatters selling options.
+
 Not yet: early exercise of American options, margin for short options, and
 fills at the bid/ask. See `reports/sessions/2026-10-29_options-design.md`.
 
 ## Examples
 
-[`examples/`](examples/README.md) holds 18 runnable scripts, one per part of
+[`examples/`](examples/README.md) holds 20 runnable scripts, one per part of
 backtesting: data feeds, indicators, every order type, sizers, commissions,
 analyzers, plotting, optimisation, multi-asset portfolios, signals,
 timeframes, and options. Each runs offline on the data in `datas/`, and the

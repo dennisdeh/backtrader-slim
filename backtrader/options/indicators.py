@@ -83,10 +83,11 @@ class OptionGreeks(Indicator):
             raise ValueError(f"model is 'bsm' or 'black76', not {self.p.model!r}")
         if self.p.price not in ("close", "mid"):
             raise ValueError(f"price is 'close' or 'mid', not {self.p.price!r}")
-        self._contract = self.data0.contract
 
     def _greeks(self, dtnum, S, P):
-        c = self._contract
+        c = (
+            self.data0.contract
+        )  # read each bar: a model feed sets its strike at listing
         T = c.years_to_expiry(num2date(dtnum))
         r, q = self.p.rate, self.p.dividend
         if self.p.model == "black76":

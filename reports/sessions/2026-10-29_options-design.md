@@ -458,6 +458,16 @@ The questionnaire was answered in the session chat on 2026-10-29.
     gamma, vega per point and theta per day, from the close or the
     bid/ask mid.
   - 68 tests. Full suite 2026-10-29: 515 passed, 1 skipped.
+- **Phase 3, the A3 model mode:** done on branch `options-model`, stacked on
+  `examples`.
+  - `ModelOptionData` prices contracts from the underlying, with realised
+    volatility as the default input (answer 6). Its strikes can be set at
+    listing (`moneyness=`), and it is labelled "(model)" by default.
+  - One example per strategy family: the covered call (example 15), the
+    cash-secured put as the wheel (19), and the vertical spread (20).
+    Example 17 moved onto the model feed.
+  - 26 tests (25 for the feed, 1 for the price floor). Full suite
+    2026-10-29: 562 passed, 1 skipped.
 - **Deferred, and where each belongs:**
   - fills at mid ± a fraction of the spread (answer 8), which needs a
     broker fill model;

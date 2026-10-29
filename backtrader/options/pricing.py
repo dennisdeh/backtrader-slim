@@ -111,6 +111,8 @@ def bsm(right, S, K, T, r, sigma, q=0.0):
     Nd1, Nd2 = _cdf(phi * d1), _cdf(phi * d2)
 
     price = phi * (S * dq * Nd1 - K * dr * Nd2)
+    if price <= 0.0:  # rounding far out of the money; max() would keep -0.0
+        price = 0.0
     delta = phi * dq * Nd1
     gamma = dq * nd1 / (S * sigma * sqt)
     vega = S * dq * nd1 * sqt
