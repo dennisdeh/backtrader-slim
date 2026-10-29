@@ -612,6 +612,9 @@ class Strategy(StrategyBase, metaclass=MetaStrategy):
 
         self.notify_cashvalue(cash, value)
         self.notify_fund(cash, value, fundvalue, fundshares)
+        margin_call = getattr(self.broker, "margin_call", None)
+        if margin_call is not None:
+            self.notify_margin(margin_call)
         for analyzer in itertools.chain(self.analyzers, self._slave_analyzers):
             analyzer._notify_cashvalue(cash, value)
             analyzer._notify_fund(cash, value, fundvalue, fundshares)
@@ -759,6 +762,14 @@ class Strategy(StrategyBase, metaclass=MetaStrategy):
     def notify_order(self, order):
         """
         Receives an order whenever there has been a change in one
+        """
+        pass
+
+    def notify_margin(self, call):
+        """
+        Receives a ``bt.options.MarginCall`` after every bar on which cash is
+        short of what the broker's margin model requires. Nothing is closed
+        for the strategy: what to do about it is the strategy's decision.
         """
         pass
 
@@ -1445,6 +1456,22 @@ class Strategy(StrategyBase, metaclass=MetaStrategy):
                 return self.sell(data=data, size=size, price=price, **kwargs)
 
         return None  # no execution size == possize
+
+    def combo(self, legs, tradeid=0, **kwargs):
+        """Sends several legs as one market order: all fill, or none.
+
+        ``legs`` is a list of ``(data, size)`` pairs, ``data`` a feed or its
+        name, ``size`` positive to buy and negative to sell. The broker
+        checks the legs together (so a spread's sold leg pays for its bought
+        one) and fills them together, each at the next open of its own
+        feed. Returns the leg orders; ``order.info.combo`` identifies the
+        combo in ``notify_order`` and in the ``StructureTrades`` analyzer.
+        """
+        resolved = [
+            (self.getdatabyname(d) if isinstance(d, str) else d, size)
+            for d, size in legs
+        ]
+        return self.broker.combo(self, resolved, tradeid=tradeid, **kwargs)
 
     def order_target_percent(self, data=None, target=0.0, **kwargs):
         """

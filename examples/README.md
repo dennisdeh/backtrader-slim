@@ -28,6 +28,7 @@ working fails the build rather than misleading its reader.
 | [18_broker_and_engine.py](18_broker_and_engine.py) | short selling with interest, deposits and fund returns, cheat-on-open, the CSV writer |
 | [19_options_cash_secured_put.py](19_options_cash_secured_put.py) | the wheel: cash-secured puts, assignment, then covered calls |
 | [20_options_vertical_spread.py](20_options_vertical_spread.py) | a monthly bull call spread: a defined-risk structure, and why the short leg goes first |
+| [21_options_book.py](21_options_book.py) | iron condors as combo orders under the `CashCovered` margin model, with portfolio greeks and per-structure results |
 
 `--plot` (or `--show` for 09) opens a chart where a display is available.
 Example 09 always writes its chart to `examples/output/`, which git ignores.

@@ -35,4 +35,6 @@ from .contract import *
 from .feeds import *
 from .indicators import *
 from .model import *
+from .margin import *
+from .analysis import *
 from .pricing import CALL, PUT

@@ -24,13 +24,14 @@ UNRELEASED
     result is identical.                                            (FIXES)
 
   EXAMPLES
-  - examples/: 20 runnable scripts covering data feeds, indicators, order
+  - examples/: 21 runnable scripts covering data feeds, indicators, order
     types, brackets and OCO, target orders and sizers, commissions and
     slippage, analyzers, observers and plotting, optimisation, a
     multi-stock rotation on a timer, signals, timeframes and replay,
     options pricing, a covered call, delta hedging, rolling protective
     puts on model-priced contracts, the wheel (cash-secured puts, then
-    covered calls), a monthly bull call spread, and broker features (short
+    covered calls), a monthly bull call spread, a book of iron condors as
+    combo orders under CashCovered margin, and broker features (short
     interest, deposits and fund returns, cheat-on-open, the CSV writer). tests/test_examples.py runs every one;
     the sdist ships them.
 
@@ -70,7 +71,37 @@ UNRELEASED
     money could give -0.0.
   - OptionGreeks reads the contract on every bar rather than once, so it
     follows a strike set at listing.
-  - Not yet: early exercise, margin for short options, fills at bid/ask.
+  - Margin models. broker.set_margin_model(model) sets what cash positions
+    must keep in reserve; None, the default, keeps today's behaviour (cash
+    >= 0 and nothing more). The model is asked at submission, about the
+    positions an order would leave, and an order it refuses ends as
+    Margin, undone so it cannot affect the orders after it. It is asked
+    again after every bar, and a shortfall is passed to the new
+    Strategy.notify_margin(call), a bt.options.MarginCall; nothing is
+    closed for the strategy. broker.get_margin_requirement() reads the
+    current figure.
+  - bt.options.CashCovered, the margin model chosen in the options
+    questionnaire:
+    - A short call is covered by units of the underlying held anywhere,
+      or by a long call expiring no earlier; covered by a higher strike,
+      it reserves the gap.
+    - A short put reserves its strike, or the gap to a long put.
+    - A short position in the underlying reserves its value.
+    - A naked short call is refused.
+  - Combo orders. Strategy.combo([(data, size), ...]) and
+    BackBroker.combo send several market legs as one order. They are
+    checked together at submission, so a sold leg pays for a bought one,
+    and filled together at each leg's next open, or not at all.
+    order.info.combo identifies the combo. _execute takes force=True so no
+    leg of an accepted combo is refused alone.
+  - bt.options.PortfolioGreeks, an observer: the book's delta, gamma per
+    1%, vega per volatility point and theta per day, in money.
+  - bt.options.StructureTrades, an analyzer: profit per combo rather than
+    per leg. It follows the combo through closing fills, settlements and
+    deliveries, and reports its worst and best marked-to-market result.
+  - Settlement legs also carry order.info.option, the name of the option
+    they settle, so a delivery can be traced to its contract.
+  - Not yet: early exercise, fills at bid/ask, a Reg-T margin model.
 
   PLOTTING
   - The x axis showed no dates at all. Every axis hid its tick labels and

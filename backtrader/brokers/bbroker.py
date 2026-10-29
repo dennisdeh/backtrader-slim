@@ -25,6 +25,7 @@
 
 import collections
 import datetime
+import itertools
 
 import backtrader as bt
 from backtrader.order import Order, BuyOrder, SellOrder
@@ -281,6 +282,8 @@ class BackBroker(bt.BrokerBase):
         self._fundshares = self.p.cash / self._fundval
         self._cash_addition = collections.deque()
 
+        self.margin_call = None  # a MarginCall while cash is short of margin
+
     def get_notification(self):
         try:
             return self.notifs.popleft()
@@ -353,6 +356,35 @@ class BackBroker(bt.BrokerBase):
     def set_checksubmit(self, checksubmit):
         """Sets the checksubmit parameter"""
         self.p.checksubmit = checksubmit
+
+    margin_model = None
+
+    def set_margin_model(self, model):
+        """Sets the margin model (``bt.options.CashCovered`` or a
+        ``MarginModel`` of one's own): what cash positions must keep in
+        reserve. ``None``, the default, requires nothing beyond cash >= 0.
+
+        It is asked at submission, about the positions an order would leave
+        (an order that would not be covered is refused, ``Margin``), and
+        after every bar, about the positions held (a shortfall is reported
+        to the strategies' ``notify_margin``)."""
+        self.margin_model = model
+
+    def get_margin_requirement(self):
+        """The cash the positions held must keep, under the margin model."""
+        if self.margin_model is None:
+            return 0.0
+        sizes = {d: p.size for d, p in self.positions.items() if p.size}
+        return self.margin_model.requirement(self, sizes)
+
+    def _margin_allows(self, cash, positions):
+        """Whether ``cash`` covers the requirement of the held positions
+        with ``positions`` (pseudo-executed clones) laid over them."""
+        if self.margin_model is None:
+            return True
+        sizes = {d: p.size for d, p in self.positions.items()}
+        sizes.update({d: p.size for d, p in positions.items()})
+        return cash >= self.margin_model.requirement(self, sizes)
 
     def set_eosbar(self, eosbar):
         """Sets the eosbar parameter (alias: ``seteosbar``"""
@@ -564,26 +596,112 @@ class BackBroker(bt.BrokerBase):
         while self.submitted:
             order = self.submitted.popleft()
 
-            if self._take_children(order) is None:  # children not taken
+            combo = getattr(order, "combo", None)
+            if combo is not None:
+                legs = [order] + [
+                    o for o in self.submitted if getattr(o, "combo", None) is combo
+                ]
+                for leg in legs[1:]:
+                    self.submitted.remove(leg)
+                cash = self._check_combo(legs, cash, positions)
                 continue
 
-            comminfo = self.getcommissioninfo(order.data)
+            if self._take_children(order) is None:  # children not taken
+                continue
 
             position = positions.setdefault(
                 order.data, self.positions[order.data].clone()
             )
+            saved = cash, position.clone()
 
             # pseudo-execute the order to get the remaining cash after exec
             cash = self._execute(order, cash=cash, position=position)
 
             if cash >= 0.0:
-                self.submit_accept(order)
-                continue
+                if self._margin_allows(cash, positions):
+                    self.submit_accept(order)
+                    continue
+                # refused by the margin model: it leaves nothing behind
+                cash, positions[order.data] = saved
 
             order.margin()
             self.notify(order)
             self._ococheck(order)
             self._bracketize(order, cancel=True)
+
+    def _check_combo(self, legs, cash, positions):
+        """Accepts every leg or none: the legs are pseudo-executed together,
+        and only the cash and margin left after all of them count."""
+        saved = cash, {d: p.clone() for d, p in positions.items()}
+        for leg in legs:
+            position = positions.setdefault(leg.data, self.positions[leg.data].clone())
+            cash = self._execute(leg, cash=cash, position=position)
+
+        if cash >= 0.0 and self._margin_allows(cash, positions):
+            for leg in legs:
+                self.submit_accept(leg)
+            return cash
+
+        cash, kept = saved
+        positions.clear()
+        positions.update(kept)
+        for leg in legs:
+            leg.margin()
+            self.notify(leg)
+        return cash
+
+    def combo(self, owner, legs, tradeid=0, **kwargs):
+        """Sends ``legs``, ``(data, size)`` pairs with a signed size, as one
+        order: checked together at submission and filled together, each at
+        the next open of its feed, or not at all. Returns the leg orders,
+        each carrying ``order.info.combo``, the combo's reference."""
+        group = _Combo(next(_Combo.refs))
+        for data, size in legs:
+            if not size:
+                raise ValueError("a combo leg needs a size other than 0")
+            ordercls = BuyOrder if size > 0 else SellOrder
+            order = ordercls(
+                owner=owner,
+                data=data,
+                size=abs(size),
+                exectype=Order.Market,
+                tradeid=tradeid,
+            )
+            order.combo = group
+            order.addinfo(combo=group.ref, **kwargs)
+            self._ocoize(order, None)
+            group.legs.append(order)
+
+        for order in group.legs:
+            self.transmit(order)
+        return list(group.legs)
+
+    def _exec_combos(self, ready):
+        """Fills the combos whose legs all have a bar after their creation,
+        each leg at its feed's open; returns the legs left waiting."""
+        waiting = []
+        for group, legs in ready.values():
+            if any(not leg.alive() for leg in group.legs):
+                for leg in legs:  # a leg died elsewhere: none may fill
+                    leg.cancel()
+                    self.notify(leg)
+                continue
+            if len(legs) < len(group.legs) or any(
+                leg.data.datetime[0] <= leg.created.dt for leg in legs
+            ):
+                waiting.extend(legs)
+                continue
+            for leg in legs:
+                d = leg.data
+                if leg.isbuy():
+                    price = self._slip_up(d.high[0], d.open[0], doslip=self.p.slip_open)
+                else:
+                    price = self._slip_down(
+                        d.low[0], d.open[0], doslip=self.p.slip_open
+                    )
+                # checked as a whole at submission: no leg is refused alone
+                self._execute(leg, ago=0, price=price, force=True)
+        return waiting
 
     def submit_accept(self, order):
         order.pannotated = None
@@ -738,10 +856,12 @@ class BackBroker(bt.BrokerBase):
         position=None,
         dtcoc=None,
         settlement=None,
+        force=False,
     ):
         # settlement: an option expiry (see _settle_expired). It is charged
         # the settlement commission, and it executes even if cash goes below
-        # zero - expiry is not an order the broker can refuse
+        # zero - expiry is not an order the broker can refuse. force: a combo
+        # leg, checked with its siblings at submission
         # ago = None is used a flag for pseudo execution
         if ago is not None and price is None:
             return  # no psuedo exec no price - no execution
@@ -842,7 +962,7 @@ class BackBroker(bt.BrokerBase):
                 openedcomm = cinfocomp.getsettlementcommission(opened, settlement)
             cash -= openedcomm
 
-            if cash < 0.0 and settlement is None:
+            if cash < 0.0 and settlement is None and not force:
                 # execution is not possible - nullify
                 opened = 0
                 openedvalue = openedcomm = 0.0
@@ -957,13 +1077,13 @@ class BackBroker(bt.BrokerBase):
 
             owner, tradeid = self._last_owner(data)
             size = pos.size
-            self._settlement_leg(owner, data, -size, value, kind, tradeid)
+            self._settlement_leg(owner, data, -size, value, kind, tradeid, data)
 
             if value > 0.0 and contract.settlement == "physical":
                 units = size * contract.multiplier
                 if contract.isput:
                     units = -units
-                self._settlement_leg(owner, und, units, S, "delivery", tradeid)
+                self._settlement_leg(owner, und, units, S, "delivery", tradeid, data)
 
     @staticmethod
     def _close_on_or_before(data, date):
@@ -979,7 +1099,7 @@ class BackBroker(bt.BrokerBase):
                 return order.owner, order.tradeid
         return self.cerebro.runningstrats[0], 0
 
-    def _settlement_leg(self, owner, data, size, price, kind, tradeid):
+    def _settlement_leg(self, owner, data, size, price, kind, tradeid, option):
         ordercls = BuyOrder if size > 0 else SellOrder
         order = ordercls(
             owner=owner,
@@ -990,7 +1110,7 @@ class BackBroker(bt.BrokerBase):
             tradeid=tradeid,
             histnotify=True,
         )
-        order.addinfo(settlement=kind)
+        order.addinfo(settlement=kind, option=option._name)
         self._ocoize(order, None)
         order.submit(self)
         order.accept()
@@ -1351,13 +1471,18 @@ class BackBroker(bt.BrokerBase):
         self._process_order_history()
 
         # Iterate once over all elements of the pending queue
+        combos = {}
         self.pending.append(None)
         while True:
             order = self.pending.popleft()
             if order is None:
                 break
 
-            if order.expire():
+            if getattr(order, "combo", None) is not None and order.active():
+                entry = combos.setdefault(id(order.combo), (order.combo, []))
+                entry[1].append(order)
+
+            elif order.expire():
                 self.notify(order)
                 self._ococheck(order)
                 self._bracketize(order, cancel=True)
@@ -1374,6 +1499,8 @@ class BackBroker(bt.BrokerBase):
                     # a bracket parent order may have been executed
                     self._bracketize(order)
 
+        self.pending.extend(self._exec_combos(combos))
+
         self._settle_expired()
 
         # Operations have been executed ... adjust cash end of bar
@@ -1386,6 +1513,29 @@ class BackBroker(bt.BrokerBase):
                 pos.adjbase = data.close[0]
 
         self._get_value()  # update value
+        self._check_margin()
+
+    def _check_margin(self):
+        self.margin_call = None
+        if self.margin_model is None:
+            return
+        requirement = self.get_margin_requirement()
+        if self.cash < requirement:
+            from ..options.margin import MarginCall
+
+            dt = self.cerebro.datas[0].datetime.datetime(0)
+            shortfall = requirement - self.cash
+            self.margin_call = MarginCall(dt, self.cash, requirement, shortfall)
+
+
+class _Combo:
+    """The legs of one combo order."""
+
+    refs = itertools.count(1)
+
+    def __init__(self, ref):
+        self.ref = ref
+        self.legs = []
 
 
 # Alias
