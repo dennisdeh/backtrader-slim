@@ -105,6 +105,7 @@ class StructureTrades(Analyzer):
     def start(self):
         super().start()
         self._open = {}
+        self._feeds = {}  # name -> feed, for the contract a delivery settles
 
     def _owner_of(self, data):
         for ref in reversed(self._open):
@@ -124,11 +125,13 @@ class StructureTrades(Analyzer):
     def notify_order(self, order):
         if order.status != order.Completed:
             return
+        self._feeds.setdefault(order.data._name, order.data)
         ref = order.info.get("combo")
         if ref is None:
             data = order.data
             if order.info.get("settlement") == "delivery":
-                data = self.strategy.getdatabyname(order.info.option)
+                # by the orders seen: a chain's contract is no cerebro feed
+                data = self._feeds.get(order.info.option)
             ref = self._owner_of(data)
             if ref is None:
                 return  # not part of any structure
@@ -149,7 +152,16 @@ class StructureTrades(Analyzer):
             ex.size, ex.price
         )
         s["cash"] -= ex.comm
-        if all(abs(q) < 1e-9 for q in s["qty"].values()):
+        # a physical exercise or assignment is followed by its delivery: the
+        # option is flat before the underlying arrives, and that is no close
+        leg = order.info.get("settlement")
+        contract = getattr(order.data, "contract", None)
+        if leg in ("exercise", "assignment") and contract.settlement == "physical":
+            s["delivery"] = True
+        elif leg == "delivery":
+            s["delivery"] = False
+        flat = all(abs(q) < 1e-9 for q in s["qty"].values())
+        if flat and not s.get("delivery"):
             self._record(
                 ref, self._open.pop(ref), closed=self.strategy.datetime.date(0)
             )

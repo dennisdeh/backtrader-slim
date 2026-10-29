@@ -315,3 +315,17 @@ def test_portfolio_greeks_add_up_the_book_in_money():
     assert obs.gamma.array[i] == pytest.approx(units * g.gamma * S * S / 100)
     assert obs.vega.array[i] == pytest.approx(units * g.vega / 100)
     assert obs.theta.array[i] == pytest.approx(units * g.theta / 365)
+
+
+def test_structure_trades_waits_for_the_delivery_after_an_exercise():
+    # a lone call exercised physically: the option is flat after the
+    # exercise leg, but the delivery that follows makes the structure
+    # 100 units long - it is not closed
+    def plan(s):
+        s.combo([("c100", 1)])
+
+    options = {"c100": ([5.0] * 5, contract(settlement="physical"))}
+    _, strat = run(plan, options, analyzers=[(StructureTrades, {})])
+    ((ref, s),) = strat.analyzers[0].get_analysis().items()
+    assert s["closed"] is None
+    assert sorted(s["legs"]) == ["c100", "und"]
